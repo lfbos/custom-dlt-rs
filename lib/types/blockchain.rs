@@ -1,12 +1,13 @@
 use super::{Block, Transaction, TransactionOutput};
+use crate::U256;
 use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
-use crate::util::MerkleRoot;
-use crate::U256;
-use std::collections::{HashMap, HashSet};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
+use crate::util::{MerkleRoot, Saveable};
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult, Write};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
@@ -86,18 +87,13 @@ impl Blockchain {
             if let Some((true, _)) = self.utxos.get(&input.prev_transaction_output_hash) {
                 // find the transaction that references this UTXO
                 // we are trying to reference
-                let referencing_transaction = self.mempool
-                    .iter()
-                    .enumerate()
-                    .find(
-                        |(_, (_, tx))| {
-                            tx
-                                .outputs
-                                .iter()
-                                .any(|output| output.hash() == input.prev_transaction_output_hash)
-                        }
-                    );
-                
+                let referencing_transaction =
+                    self.mempool.iter().enumerate().find(|(_, (_, tx))| {
+                        tx.outputs
+                            .iter()
+                            .any(|output| output.hash() == input.prev_transaction_output_hash)
+                    });
+
                 // If we have found one, unmark all of its UTXOs
                 if let Some((idx, (_, referencing_transaction))) = referencing_transaction {
                     for input in &referencing_transaction.inputs {
@@ -279,25 +275,39 @@ impl Blockchain {
         let now = Utc::now();
         let mut utxo_hashes_to_unmark: Vec<Hash> = vec![];
         self.mempool.retain(|(timestamp, transaction)| {
-            if now - *timestamp > chrono::Duration::seconds(crate::MAX_MEMPOOL_TRANSACTION_AGE as i64) {
+            if now - *timestamp
+                > chrono::Duration::seconds(crate::MAX_MEMPOOL_TRANSACTION_AGE as i64)
+            {
                 // push all utxos to unmark to the vector
                 // so we can unmark them later
-                utxo_hashes_to_unmark
-                    .extend(transaction.inputs.iter().map(
-                        |input| input.prev_transaction_output_hash
-                    ));
-                    false
+                utxo_hashes_to_unmark.extend(
+                    transaction
+                        .inputs
+                        .iter()
+                        .map(|input| input.prev_transaction_output_hash),
+                );
+                false
             } else {
                 true
             }
         });
         // unmark all of the UTXOs
         for hash in utxo_hashes_to_unmark {
-            self.utxos
-                .entry(hash)
-                .and_modify(|(marked, _)| {
-                    *marked = false;
-                });
+            self.utxos.entry(hash).and_modify(|(marked, _)| {
+                *marked = false;
+            });
         }
+    }
+}
+
+impl Saveable for Blockchain {
+    fn load<I: Read>(reader: I) -> IoResult<Self> {
+        ciborium::de::from_reader(reader)
+            .map_err(|_| IoError::new(IoErrorKind::InvalidData, "Failed to deserialize Blockchain"))
+    }
+
+    fn save<O: Write>(&self, writer: O) -> IoResult<()> {
+        ciborium::ser::into_writer(self, writer)
+            .map_err(|_| IoError::new(IoErrorKind::InvalidData, "Failed to serialize Blockchain"))
     }
 }
