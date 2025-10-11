@@ -1,4 +1,6 @@
-use crate::sha256::Hash;
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult, Write};
+
+use crate::{sha256::Hash, util::Saveable};
 use ecdsa::{
     Signature as ECDSASignature, SigningKey, VerifyingKey,
     signature::{SignerMut, Verifier},
@@ -6,13 +8,51 @@ use ecdsa::{
 use k256::Secp256k1;
 use rand;
 use serde::{Deserialize, Serialize};
+use spki::EncodePublicKey;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Signature(ECDSASignature<Secp256k1>);
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct PublicKey(VerifyingKey<Secp256k1>);
+
+impl Saveable for PublicKey {
+    fn load<I: Read>(mut reader: I) -> IoResult<Self> {
+        // read PEM-encoded public key into string
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf)?;
+        // decode the public key from PEM
+        let public_key = buf
+            .parse()
+            .map_err(|_| IoError::new(IoErrorKind::InvalidData, "Failed to parse PublicKey"))?;
+        Ok(PublicKey(public_key))
+    }
+
+    fn save<O: Write>(&self, mut writer: O) -> IoResult<()> {
+        let s = self
+            .0
+            .to_public_key_pem(Default::default())
+            .map_err(|_| IoError::new(IoErrorKind::InvalidData, "Failed to serialize PublicKey"))?;
+        writer.write_all(s.as_bytes())?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PrivateKey(#[serde(with = "signkey_serde")] pub SigningKey<Secp256k1>);
+
+impl Saveable for PrivateKey {
+    fn load<I: Read>(reader: I) -> IoResult<Self> {
+        ciborium::de::from_reader(reader)
+            .map_err(|_| IoError::new(IoErrorKind::InvalidData, "Failed to deserialize PrivateKey"))
+    }
+
+    fn save<O: Write>(&self, writer: O) -> IoResult<()> {
+        ciborium::ser::into_writer(self, writer).map_err(|_| {
+            IoError::new(IoErrorKind::InvalidData, "Failed to serialize PrivateKey")
+        })?;
+        Ok(())
+    }
+}
 
 impl Signature {
     // sign a crate::types::TransactionOutput from its Sha256 hash
