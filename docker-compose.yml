@@ -1,0 +1,198 @@
+version: '3.8'
+
+# Custom Blockchain Network
+# This docker-compose file creates a complete blockchain network with:
+# - 3 nodes (seed node + 2 peers)
+# - 2 miners (competing for blocks)
+# - Shared volumes for data persistence
+
+services:
+  # =============================================================================
+  # Node 1: Seed Node (Main node that others connect to)
+  # =============================================================================
+  node1:
+    build:
+      context: .
+      target: node
+    container_name: blockchain-node1
+    hostname: node1
+    ports:
+      - "9000:9000"  # Expose to host
+    volumes:
+      - node1-data:/data
+    command: ["--port", "9000", "--blockchain-file", "/data/blockchain.cbor"]
+    networks:
+      blockchain-net:
+        ipv4_address: 172.25.0.10
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -an | grep 9000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # =============================================================================
+  # Node 2: Peer Node (Connects to node1)
+  # =============================================================================
+  node2:
+    build:
+      context: .
+      target: node
+    container_name: blockchain-node2
+    hostname: node2
+    ports:
+      - "9001:9001"
+    volumes:
+      - node2-data:/data
+    command:
+      - "--port"
+      - "9001"
+      - "--blockchain-file"
+      - "/data/blockchain.cbor"
+      - "172.25.0.10:9000"  # Connect to node1
+    networks:
+      blockchain-net:
+        ipv4_address: 172.25.0.11
+    depends_on:
+      node1:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =============================================================================
+  # Node 3: Peer Node (Connects to node1 and node2)
+  # =============================================================================
+  node3:
+    build:
+      context: .
+      target: node
+    container_name: blockchain-node3
+    hostname: node3
+    ports:
+      - "9002:9002"
+    volumes:
+      - node3-data:/data
+    command:
+      - "--port"
+      - "9002"
+      - "--blockchain-file"
+      - "/data/blockchain.cbor"
+      - "172.25.0.10:9000"  # Connect to node1
+      - "172.25.0.11:9001"  # Connect to node2
+    networks:
+      blockchain-net:
+        ipv4_address: 172.25.0.12
+    depends_on:
+      node1:
+        condition: service_healthy
+      node2:
+        condition: service_started
+    restart: unless-stopped
+
+  # =============================================================================
+  # Miner 1: First miner (connects to node1)
+  # =============================================================================
+  miner1:
+    build:
+      context: .
+      target: miner
+    container_name: blockchain-miner1
+    hostname: miner1
+    volumes:
+      - miner1-keys:/keys
+    environment:
+      - RUST_LOG=info
+    command:
+      - "--address"
+      - "172.25.0.10:9000"
+      - "--public-key-file"
+      - "/keys/miner1.pub.pem"
+    networks:
+      - blockchain-net
+    depends_on:
+      node1:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =============================================================================
+  # Miner 2: Second miner (connects to node2 for diversity)
+  # =============================================================================
+  miner2:
+    build:
+      context: .
+      target: miner
+    container_name: blockchain-miner2
+    hostname: miner2
+    volumes:
+      - miner2-keys:/keys
+    environment:
+      - RUST_LOG=info
+    command:
+      - "--address"
+      - "172.25.0.11:9001"
+      - "--public-key-file"
+      - "/keys/miner2.pub.pem"
+    networks:
+      - blockchain-net
+    depends_on:
+      node2:
+        condition: service_started
+    restart: unless-stopped
+
+  # =============================================================================
+  # Utilities: Helper container for key generation and blockchain inspection
+  # =============================================================================
+  utils:
+    build:
+      context: .
+      target: utilities
+    container_name: blockchain-utils
+    volumes:
+      - miner1-keys:/keys/miner1
+      - miner2-keys:/keys/miner2
+      - alice-keys:/keys/alice
+      - bob-keys:/keys/bob
+      - node1-data:/data/node1
+      - node2-data:/data/node2
+      - node3-data:/data/node3
+    networks:
+      - blockchain-net
+    profiles:
+      - utils  # Only starts when explicitly requested
+    command: ["/bin/bash"]
+    stdin_open: true
+    tty: true
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  blockchain-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+
+# =============================================================================
+# Volumes (persistent storage)
+# =============================================================================
+volumes:
+  # Node data
+  node1-data:
+    driver: local
+  node2-data:
+    driver: local
+  node3-data:
+    driver: local
+  
+  # Miner keys
+  miner1-keys:
+    driver: local
+  miner2-keys:
+    driver: local
+  
+  # Wallet keys (for future use)
+  alice-keys:
+    driver: local
+  bob-keys:
+    driver: local
+
