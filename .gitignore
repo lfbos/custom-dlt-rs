@@ -108,3 +108,6 @@ rust-project.json
 
 # Ciborium files
 *.cbor
+
+# Internal documentation (not for public repo)
+ANALYSIS.md
