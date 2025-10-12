@@ -1,6 +1,5 @@
 use crate::core::{Config, Core, FeeConfig, FeeType, Recipient};
 use anyhow::Result;
-use clap::builder::Str;
 use std::panic;
 use std::path::PathBuf;
 use tracing::*;

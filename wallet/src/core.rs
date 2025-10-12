@@ -35,6 +35,7 @@ struct LoadedKey {
 
 #[derive(Clone)]
 pub struct LoadedRecipient {
+    #[allow(dead_code)]
     pub name: String,
     pub key: PublicKey,
 }

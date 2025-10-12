@@ -185,7 +185,6 @@ pub async fn handle_connection(mut socket: TcpStream) {
                 let message = Template(block);
                 message.send_async(&mut socket).await.unwrap();
             }
-            _ => (),
         };
     }
 }
