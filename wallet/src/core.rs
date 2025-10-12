@@ -1,17 +1,17 @@
 use anyhow::Result;
-use crossbeam_skiplist::SkipMap;
-use kanal::Sender;
-use serde::{Deserialize, Serialize};
-use tokio::net::TcpStream;
-use tokio::sync::Mutex;
-use tracing::{debug, error, info};
-use std::fs;
-use std::path::PathBuf;
-use std::sync::Arc;
 use btclib::crypto::{PrivateKey, PublicKey, Signature};
 use btclib::network::Message;
 use btclib::types::{Transaction, TransactionOutput};
 use btclib::util::Saveable;
+use crossbeam_skiplist::SkipMap;
+use kanal::Sender;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::net::TcpStream;
+use tokio::sync::Mutex;
+use tracing::{debug, error, info};
 
 /// Represent a key pair with paths to public and private keys.
 #[derive(Serialize, Deserialize, Clone)]
@@ -124,21 +124,14 @@ impl Core {
 
     /// Fetch UTXOs from the node for all loaded keys.
     pub async fn fetch_utxos(&self) -> Result<()> {
-        debug!(
-            "Fetching UTXOs from node: {}",
-            self.config.default_node
-        );
+        debug!("Fetching UTXOs from node: {}", self.config.default_node);
         for key in &self.utxos.my_keys {
             let message = Message::FetchUTXOs(key.public.clone());
-            message
-                .send_async(&mut *self.stream.lock().await)
-                .await?;
-            if let Message::UTXOs(utxos) = Message::receive_async(&mut *self.stream.lock().await).await? {
-                debug!(
-                    "Received {} UTXOs for key: {:?}",
-                    utxos.len(),
-                    key.public
-                );
+            message.send_async(&mut *self.stream.lock().await).await?;
+            if let Message::UTXOs(utxos) =
+                Message::receive_async(&mut *self.stream.lock().await).await?
+            {
+                debug!("Received {} UTXOs for key: {:?}", utxos.len(), key.public);
                 // Replace the entire UTXO set for this key
                 self.utxos.utxos.insert(
                     key.public.clone(),
@@ -158,32 +151,22 @@ impl Core {
 
     /// Send a transaction to the node.
     pub async fn send_transaction(&self, transaction: Transaction) -> Result<()> {
-        debug!(
-            "Sending transaction to node: {}",
-            self.config.default_node
-        );
+        debug!("Sending transaction to node: {}", self.config.default_node);
         let message = Message::SubmitTransaction(transaction);
-        message
-            .send_async(&mut *self.stream.lock().await)
-            .await?;
+        message.send_async(&mut *self.stream.lock().await).await?;
         info!("Transaction sent successfully");
         Ok(())
     }
 
     /// Prepare and send a transaction asynchronously.
     pub fn send_transaction_async(&self, recipient: &str, amount: u64) -> Result<()> {
-        info!(
-            "Preparing to send {} satoshis to {}",
-            amount, recipient
-        );
+        info!("Preparing to send {} satoshis to {}", amount, recipient);
         let recipient_key = self
             .config
             .contacts
             .iter()
             .find(|r| r.name == recipient)
-            .ok_or_else(|| {
-                anyhow::anyhow!("Recipient not found")
-            })?
+            .ok_or_else(|| anyhow::anyhow!("Recipient not found"))?
             .load()?
             .key;
         let transaction = self.create_transaction(&recipient_key, amount)?;
@@ -193,11 +176,7 @@ impl Core {
     }
 
     /// Create transaction
-    pub fn create_transaction(
-        &self,
-        recipient: &PublicKey,
-        amount: u64,
-    ) -> Result<Transaction> {
+    pub fn create_transaction(&self, recipient: &PublicKey, amount: u64) -> Result<Transaction> {
         let fee = self.calculate_fee(amount);
         let total_amount = amount + fee;
         let mut inputs = Vec::new();
@@ -247,10 +226,7 @@ impl Core {
                 pubkey: self.utxos.my_keys[0].public.clone(),
             });
         }
-        Ok(Transaction {
-            inputs,
-            outputs: vec![],
-        })
+        Ok(Transaction { inputs, outputs })
     }
 
     pub fn get_balance(&self) -> u64 {

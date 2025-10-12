@@ -1,21 +1,16 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use cursive::views::TextContent;
-use tracing::{debug, info};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tracing::{debug, info};
 mod core;
 mod tasks;
 mod ui;
 mod util;
 use core::Core;
-use tasks::{
-    handle_transactions, ui_task, update_balance, update_utxos,
-};
-use util::{
-    big_mode_btc, generate_dummy_config, setup_panic_hook,
-    setup_tracing,
-};
+use tasks::{handle_transactions, ui_task, update_balance, update_utxos};
+use util::{big_mode_btc, generate_dummy_config, setup_panic_hook, setup_tracing};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

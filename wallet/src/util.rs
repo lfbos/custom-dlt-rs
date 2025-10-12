@@ -5,7 +5,7 @@ use std::panic;
 use std::path::PathBuf;
 use tracing::*;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 /// Initialize tracing to save logs into the logs/ folder
 pub fn setup_tracing() -> Result<()> {

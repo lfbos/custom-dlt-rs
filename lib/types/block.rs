@@ -1,8 +1,8 @@
 use super::{Transaction, TransactionInput, TransactionOutput};
-use crate::U256;
 use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
 use crate::util::{MerkleRoot, Saveable};
+use crate::U256;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

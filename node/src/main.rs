@@ -1,6 +1,6 @@
 use anyhow::Result;
 use argh::FromArgs;
-use btclib::types::{Blockchain};
+use btclib::types::Blockchain;
 use dashmap::DashMap;
 use static_init::dynamic;
 use std::path::Path;

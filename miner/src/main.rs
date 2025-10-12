@@ -1,13 +1,13 @@
 use std::{
     sync::{
-        Arc,
         atomic::{AtomicBool, Ordering},
+        Arc,
     },
     thread,
     time::Duration,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use btclib::{crypto::PublicKey, network::Message, types::Block, util::Saveable};
 use clap::Parser;
 use tokio::{net::TcpStream, sync::Mutex, time::interval};
@@ -65,20 +65,18 @@ impl Miner {
         let template = self.current_template.clone();
         let mining = self.mining.clone();
         let sender = self.mined_block_sender.clone();
-        thread::spawn(move || {
-            loop {
-                if mining.load(Ordering::Relaxed) {
-                    if let Some(mut block) = template.lock().unwrap().clone() {
-                        println!("Mining block with target: {}", block.header.target);
-                        if block.header.mine(2_000_000) {
-                            println!("Block mined: {}", block.hash());
-                            sender.send(block).expect("Failed to send mined block");
-                            mining.store(false, Ordering::Relaxed);
-                        }
+        thread::spawn(move || loop {
+            if mining.load(Ordering::Relaxed) {
+                if let Some(mut block) = template.lock().unwrap().clone() {
+                    println!("Mining block with target: {}", block.header.target);
+                    if block.header.mine(2_000_000) {
+                        println!("Block mined: {}", block.hash());
+                        sender.send(block).expect("Failed to send mined block");
+                        mining.store(false, Ordering::Relaxed);
                     }
                 }
-                thread::yield_now();
             }
+            thread::yield_now();
         })
     }
 

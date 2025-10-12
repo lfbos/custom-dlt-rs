@@ -2,8 +2,8 @@ use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResu
 
 use crate::{sha256::Hash, util::Saveable};
 use ecdsa::{
-    Signature as ECDSASignature, SigningKey, VerifyingKey,
     signature::{SignerMut, Verifier},
+    Signature as ECDSASignature, SigningKey, VerifyingKey,
 };
 use k256::Secp256k1;
 use rand;
@@ -98,6 +98,8 @@ mod signkey_serde {
         D: serde::Deserializer<'de>,
     {
         let bytes: Vec<u8> = Vec::<u8>::deserialize(deserializer)?;
-        Ok(super::SigningKey::from_slice(&bytes).unwrap())
+        super::SigningKey::from_slice(&bytes).map_err(|e| {
+            serde::de::Error::custom(format!("Failed to deserialize SigningKey: {}", e))
+        })
     }
 }
