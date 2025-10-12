@@ -111,6 +111,58 @@ cargo run --bin good-wallet -- generate-config -o wallet.toml
 cargo run --bin good-wallet -- -c wallet.toml -n 127.0.0.1:9000
 ```
 
+## 🐳 Docker Quick Start (Recommended!)
+
+The easiest way to run everything is with Docker:
+
+```bash
+# 1. One-time setup (builds images and generates keys)
+./docker/setup.sh
+
+# 2. Start the entire network (3 nodes + 2 miners)
+./docker/start.sh
+
+# 3. View logs
+./docker/logs.sh
+
+# 4. Check status
+./docker/status.sh
+
+# 5. Stop when done
+./docker/stop.sh
+```
+
+**What you get:**
+- ✅ 3 interconnected blockchain nodes
+- ✅ 2 miners producing blocks
+- ✅ Persistent data storage
+- ✅ Isolated network
+- ✅ No need to install Rust!
+
+**First run:** Takes 5-10 minutes to build (compiling in release mode)
+
+**Ports exposed:**
+- Node 1: `localhost:9000`
+- Node 2: `localhost:9001`
+- Node 3: `localhost:9002`
+
+**Connect your wallet:**
+```bash
+# Your local wallet can connect to the Docker network
+cargo run --bin good-wallet -- -c wallet.toml -n localhost:9000
+```
+
+For detailed Docker documentation, see [docker/README.md](./docker/README.md)
+
+**Pro Tip:** Use the `Makefile` for even easier commands:
+```bash
+make setup    # Same as ./docker/setup.sh
+make start    # Same as ./docker/start.sh
+make stop     # Same as ./docker/stop.sh
+make logs     # Same as ./docker/logs.sh
+make help     # See all available commands
+```
+
 ## 📖 Learning Path
 
 If you're new to blockchain, we recommend reading in this order:

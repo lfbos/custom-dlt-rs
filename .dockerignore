@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# Rust build artifacts
+target/
+debug/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Documentation (already in source)
+*.md
+!README.md
+
+# Blockchain data files
+*.cbor
+*.pem
+*.toml
+blockchain.cbor
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Internal docs
+ANALYSIS.md
+
+# Test data
+myblock.cbor
+mytx.cbor
+hardblock.cbor
+

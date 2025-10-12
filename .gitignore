@@ -111,3 +111,12 @@ rust-project.json
 
 # Internal documentation (not for public repo)
 ANALYSIS.md
+
+# Docker generated files
+docker/miner1-keys/
+docker/miner2-keys/
+docker/backups/
+
+# Wallet configs (may contain sensitive paths)
+*_wallet.toml
+wallet_config.toml
