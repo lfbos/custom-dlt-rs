@@ -8,9 +8,15 @@ use tokio::task::JoinHandle;
 use tokio::time::{self, Duration};
 use tracing::*;
 
+/// Interval in seconds between UTXO updates from the node
+const UTXO_UPDATE_INTERVAL_SECS: u64 = 20;
+
+/// Interval in milliseconds between balance display updates in the UI
+const BALANCE_DISPLAY_UPDATE_INTERVAL_MS: u64 = 500;
+
 pub async fn update_utxos(core: Arc<Core>) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_secs(20));
+        let mut interval = time::interval(Duration::from_secs(UTXO_UPDATE_INTERVAL_SECS));
         loop {
             interval.tick().await;
             if let Err(e) = core.fetch_utxos().await {
@@ -45,7 +51,7 @@ pub async fn ui_task(core: Arc<Core>, balance_content: TextContent) -> JoinHandl
 pub async fn update_balance(core: Arc<Core>, balance_content: TextContent) -> JoinHandle<()> {
     tokio::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(BALANCE_DISPLAY_UPDATE_INTERVAL_MS)).await;
             info!("updating balance string");
             balance_content.set_content(big_mode_btc(&core));
         }

@@ -176,22 +176,68 @@ impl Core {
         Ok(())
     }
 
-    /// Create transaction
+    /// Creates a transaction by selecting UTXOs and generating signatures.
+    ///
+    /// This function implements a simple greedy coin selection algorithm:
+    /// it iterates through available UTXOs and adds them to the transaction
+    /// until the required amount (payment + fee) is covered.
+    ///
+    /// # Coin Selection Algorithm:
+    ///
+    /// ```text
+    /// Goal: Send 10 BTC with 0.1 BTC fee (need 10.1 BTC total)
+    ///
+    /// Available UTXOs:
+    /// - UTXO A: 3 BTC
+    /// - UTXO B: 5 BTC  
+    /// - UTXO C: 8 BTC
+    ///
+    /// Selection process:
+    /// 1. Add UTXO A: 3 BTC (total: 3, need: 10.1) - not enough
+    /// 2. Add UTXO B: 5 BTC (total: 8, need: 10.1) - not enough
+    /// 3. Add UTXO C: 8 BTC (total: 16, need: 10.1) - enough!
+    ///
+    /// Transaction created:
+    /// Inputs: [UTXO A, UTXO B, UTXO C] = 16 BTC
+    /// Outputs: 
+    ///   - 10 BTC → recipient
+    ///   - 5.9 BTC → self (change)
+    /// Fee: 0.1 BTC (implicit, goes to miner)
+    /// ```
+    ///
+    /// # Arguments
+    /// * `recipient` - Public key of the recipient
+    /// * `amount` - Amount to send in satoshis
+    ///
+    /// # Returns
+    /// * `Ok(Transaction)` - A signed transaction ready to broadcast
+    /// * `Err` - If insufficient funds or signing fails
     pub fn create_transaction(&self, recipient: &PublicKey, amount: u64) -> Result<Transaction> {
+        // STEP 1: Calculate total amount needed (payment + fee)
         let fee = self.calculate_fee(amount);
         let total_amount = amount + fee;
+
+        // STEP 2: Coin selection - gather enough UTXOs using greedy algorithm
         let mut inputs = Vec::new();
         let mut input_sum = 0;
+
+        // Iterate through all our UTXOs across all keys
         for entry in self.utxos.utxos.iter() {
             let pubkey = entry.key();
             let utxos = entry.value();
+
             for (marked, utxo) in utxos.iter() {
+                // Skip UTXOs reserved by pending mempool transactions
                 if *marked {
-                    continue; // Skip marked UTXOs
+                    continue;
                 }
+
+                // Stop if we already have enough
                 if input_sum >= total_amount {
                     break;
                 }
+
+                // Add this UTXO as input and sign it with the corresponding private key
                 inputs.push(btclib::types::TransactionInput {
                     prev_transaction_output_hash: utxo.hash(),
                     signature: Signature::sign_output(
@@ -208,18 +254,26 @@ impl Core {
                 });
                 input_sum += utxo.value;
             }
+
+            // Check if we've collected enough across all keys
             if input_sum >= total_amount {
                 break;
             }
         }
+
+        // STEP 3: Verify we have sufficient funds
         if input_sum < total_amount {
             return Err(anyhow::anyhow!("Insufficient funds"));
         }
+
+        // STEP 4: Create outputs (payment to recipient)
         let mut outputs = vec![TransactionOutput {
             value: amount,
             unique_id: uuid::Uuid::new_v4(),
             pubkey: recipient.clone(),
         }];
+
+        // STEP 5: Add change output if we have excess (send back to ourselves)
         if input_sum > total_amount {
             outputs.push(TransactionOutput {
                 value: input_sum - total_amount,
@@ -227,6 +281,8 @@ impl Core {
                 pubkey: self.utxos.my_keys[0].public.clone(),
             });
         }
+
+        // STEP 6: Return the completed, signed transaction
         Ok(Transaction { inputs, outputs })
     }
 

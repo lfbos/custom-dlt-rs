@@ -2,6 +2,12 @@
 name = "btclib"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Luis Boscan"]
+description = "Educational blockchain library implementing Bitcoin-like functionality"
+repository = "https://github.com/lfbos/custom-dlt-rs"
+keywords = ["blockchain", "bitcoin", "cryptocurrency", "education"]
+categories = ["cryptography", "network-programming"]
 
 [dependencies]
 bigdecimal = "0.4.8"

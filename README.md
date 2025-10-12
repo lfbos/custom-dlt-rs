@@ -2,6 +2,8 @@
 
 A Bitcoin-inspired blockchain implementation built from scratch in Rust for educational purposes. This project demonstrates core blockchain concepts including UTXO model, Proof-of-Work consensus, cryptographic signatures, and peer-to-peer networking.
 
+> **Note:** This implementation is based on the book **"Building Bitcoin in Rust"**. It's an educational project designed to help others understand how blockchain technology works under the hood.
+
 ## 📚 Project Overview
 
 This is a complete, working blockchain system with:
@@ -45,11 +47,19 @@ custom-dlt-rs/
 └── wallet/           # Wallet with Terminal UI
 ```
 
+### Documentation Structure
+
 Each component has its own detailed README:
 - [**lib/**](./lib/README.md) - Core blockchain concepts and implementation
 - [**node/**](./node/README.md) - Full node architecture and networking
 - [**miner/**](./miner/README.md) - Mining process and Proof-of-Work
 - [**wallet/**](./wallet/README.md) - Wallet functionality and user interface
+
+Additional documentation:
+- [**QUICKSTART.md**](./QUICKSTART.md) - Step-by-step tutorial
+- [**DEPENDENCIES.md**](./DEPENDENCIES.md) - Explanation of all libraries used
+- [**CREDITS.md**](./CREDITS.md) - Attribution and acknowledgments
+- [**LICENSE**](./LICENSE) - MIT License
 
 ## 🚀 Quick Start
 
@@ -105,22 +115,235 @@ cargo run --bin good-wallet -- -c wallet.toml -n 127.0.0.1:9000
 
 If you're new to blockchain, we recommend reading in this order:
 
-1. **[lib/README.md](./lib/README.md)** - Core concepts (UTXO, PoW, Merkle Trees)
-2. **[node/README.md](./node/README.md)** - Network and consensus
-3. **[miner/README.md](./miner/README.md)** - Mining mechanics
-4. **[wallet/README.md](./wallet/README.md)** - User interaction
-5. **[QUICKSTART.md](./QUICKSTART.md)** - Hands-on tutorial
+1. **Start here:** [Key Concepts](#-key-concepts-explained-for-beginners) below - Fundamental blockchain concepts
+2. **[DEPENDENCIES.md](./DEPENDENCIES.md)** - Understanding the libraries used (optional but helpful)
+3. **[lib/README.md](./lib/README.md)** - Core concepts (UTXO, PoW, Merkle Trees) in depth
+4. **[node/README.md](./node/README.md)** - Network and consensus
+5. **[miner/README.md](./miner/README.md)** - Mining mechanics
+6. **[wallet/README.md](./wallet/README.md)** - User interaction
+7. **[QUICKSTART.md](./QUICKSTART.md)** - Hands-on tutorial to run everything
 
-## 🔑 Key Concepts Explained
+## 🔑 Key Concepts Explained (For Beginners)
+
+### Hash Functions
+**What is a hash?** A hash is like a digital fingerprint - it takes any data and produces a unique fixed-size code.
+
+```
+Input: "Hello World"  →  SHA-256  →  Output: "a591a6d4..."
+Input: "Hello World!" →  SHA-256  →  Output: "7f83b165..." (completely different!)
+```
+
+**Properties:**
+- **Deterministic**: Same input always gives same output
+- **One-way**: Can't reverse it (fingerprint → original data)
+- **Avalanche effect**: Tiny change in input = completely different output
+- **Unique**: Nearly impossible to find two inputs with same output
+
+**Used everywhere in blockchain:**
+- Block IDs
+- Transaction IDs  
+- UTXO identifiers
+- Proof-of-Work (finding hash that meets target)
+
+---
+
+### Public & Private Keys (Digital Wallets)
+**Think of it like a mailbox:**
+
+```
+Private Key = Physical key to open your mailbox (KEEP SECRET!)
+Public Key  = Your mailing address (SHARE FREELY!)
+```
+
+**How it works:**
+1. You generate a **private key** (random 256-bit number)
+2. Math derives your **public key** from private key (one-way!)
+3. Public key becomes your "address" where people send coins
+4. Only your private key can "unlock" (spend) coins sent to that address
+
+**Security:**
+- Private key is like your password × 1000
+- If someone gets it, they steal ALL your coins
+- Public key is safe to share (it's your "username")
+- Can't calculate private key from public key (mathematically impossible)
+
+---
+
+### Digital Signatures (Proving Ownership)
+**Problem:** How do you prove you own coins without revealing your private key?
+
+**Solution:** Digital signatures!
+
+```
+1. You want to spend 10 BTC
+2. Create message: "Transfer 10 BTC from UTXO #123 to Bob"
+3. Sign message with your PRIVATE key → creates signature
+4. Everyone can verify signature with your PUBLIC key
+5. Signature proves you own private key WITHOUT revealing it!
+```
+
+**Real-world analogy:** Like signing a check
+- Only you can create your signature (private key)
+- Anyone can verify it's your signature (public key)
+- Can't forge your signature without your pen (private key)
+
+---
+
+### Nonce (Number Used Once)
+The magic number that makes Proof-of-Work work!
+
+```
+Block Header:
+├─ Previous block hash: 0x1234...
+├─ Transactions merkle root: 0x5678...
+├─ Timestamp: 2025-10-12 14:30:00
+├─ Target: 0x0000FFFF...
+└─ Nonce: ??? ← The number we're searching for!
+
+Mining Process:
+Try nonce = 0 → Hash: 0x9876... (too big, doesn't meet target)
+Try nonce = 1 → Hash: 0x8765... (too big, doesn't meet target)
+Try nonce = 2 → Hash: 0x7654... (too big, doesn't meet target)
+...
+Try nonce = 482,573 → Hash: 0x0000A3B2... (SUCCESS! ✓)
+```
+
+**Why needed?**
+Without the nonce, the hash would be fixed. The nonce gives us a way to keep trying different hashes until we find one that works.
+
+---
+
+### Coinbase Transaction (Block Reward)
+**Special first transaction in every block** that creates new coins!
+
+```
+Normal Transaction:
+Inputs: [Alice's 50 BTC]  → Outputs: [Bob gets 30 BTC, Alice gets 20 BTC change]
+(Must reference existing coins)
+
+Coinbase Transaction:
+Inputs: [] (EMPTY - no previous coins!)  → Outputs: [Miner gets 50 BTC]
+(Creates NEW coins from thin air!)
+```
+
+**Rules:**
+1. Must be FIRST transaction in block
+2. Has ZERO inputs
+3. Output amount = Block reward + transaction fees
+4. Only one per block
+5. Name comes from "coin base" (base of new coins)
+
+**Block Reward Schedule:**
+```
+Blocks 0-209:    50 BTC per block
+Blocks 210-419:  25 BTC per block (halved!)
+Blocks 420-629:  12.5 BTC per block (halved again!)
+...
+```
+
+This is how new coins enter circulation!
+
+---
+
+### Satoshis vs BTC (Units)
+Like dollars and cents:
+
+```
+1 BTC = 100,000,000 satoshis
+1 satoshi = 0.00000001 BTC
+
+Examples:
+- 0.5 BTC = 50,000,000 satoshis
+- 1,000 satoshis = 0.00001 BTC
+- Transaction fee: 1,000 sats = 0.00001 BTC
+```
+
+**Why satoshis?**
+- Bitcoin is divisible (like you can have $0.01)
+- Allows micro-transactions
+- Internally, everything is stored as satoshis (integers)
+- No floating-point errors!
+
+---
+
+### Block Height vs Block Hash
+**Two ways to identify a block:**
+
+```
+Block Height = Position in chain (0, 1, 2, 3...)
+Block Hash   = Unique fingerprint (0x5d41402a...)
+
+Example:
+Block #0 (Genesis Block)
+├─ Height: 0
+├─ Hash: 0xABC123...
+└─ Previous Hash: 0x000000... (none, it's first)
+
+Block #1
+├─ Height: 1
+├─ Hash: 0xDEF456...
+└─ Previous Hash: 0xABC123... (links to Block #0)
+```
+
+**Difference:**
+- **Height**: Simple counter (easy for humans)
+- **Hash**: Cryptographic proof (used by protocol)
+
+**Why both?**
+- Height for: "Get me block 100"
+- Hash for: "Verify this exact block hasn't changed"
+
+---
+
+### Consensus (Agreement Without Trust)
+**Problem:** 1000 computers need to agree on transaction order, but some might be malicious.
+
+**Traditional solution:** Central authority (bank decides)
+**Blockchain solution:** Proof-of-Work consensus
+
+```
+Scenario: Alice tries to spend same 10 BTC twice
+
+Node A receives: Alice → Bob (10 BTC)
+Node B receives: Alice → Charlie (10 BTC)
+Nodes disagree! Who's right?
+
+Solution:
+1. Both transactions go to mempool
+2. Miner includes ONLY ONE in their block
+3. Miner solves Proof-of-Work first
+4. All nodes accept that block
+5. The other transaction gets rejected (double-spend prevented)
+
+Consensus achieved! All nodes agree on same history.
+```
+
+**Why it works:**
+- Longest chain (most work) wins
+- Rewriting history requires redoing ALL the work
+- 51% of mining power would need to collude
+- Economically irrational (costs more than benefit)
+
+---
 
 ### UTXO Model
 Unlike account-based systems (like Ethereum), this blockchain uses **Unspent Transaction Outputs**. Each transaction consumes previous outputs and creates new ones. This provides better privacy and parallelizability.
 
+[See detailed explanation in lib/README.md](./lib/README.md#1-utxo-model-unspent-transaction-outputs)
+
+---
+
 ### Proof-of-Work
 Miners compete to find a nonce that makes the block hash meet a difficulty target. This makes the blockchain immutable - rewriting history requires redoing all the computational work.
 
+[See detailed explanation in lib/README.md](./lib/README.md#3-proof-of-work-pow)
+
+---
+
 ### Difficulty Adjustment
 The network automatically adjusts mining difficulty every 50 blocks to maintain a target block time of 10 seconds.
+
+---
 
 ### Block Rewards
 Miners earn rewards that halve every 210 blocks, creating a deflationary supply schedule similar to Bitcoin.
@@ -244,11 +467,37 @@ This is an educational project. Feel free to:
 
 ## 📄 License
 
-[Specify your license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### What does this mean?
+
+You are free to:
+- ✅ Use this code for learning
+- ✅ Use it in your own projects (even commercial)
+- ✅ Modify and adapt it
+- ✅ Share it with others
+
+You just need to:
+- 📝 Include the original copyright notice
+- 📝 Include the MIT License text
+
+**TL;DR:** Do whatever you want with this code, just give credit! 🎉
 
 ## 🙏 Acknowledgments
 
-Based on the book **"Building Bitcoin in Rust"**.
+### Primary Source
+This project is **based on the book "Building Bitcoin in Rust"**. The core architecture, algorithms, and implementation approach follow the book's educational methodology. Special thanks to the book's author for providing an excellent learning resource for blockchain education.
+
+### Additional Inspiration
+- **Satoshi Nakamoto's Bitcoin Whitepaper** - The foundation of blockchain technology
+- **RustCrypto Project** - High-quality cryptographic libraries
+- **Rust Community** - Excellent documentation and ecosystem
+
+### Educational Purpose
+This implementation is intended for **educational purposes** to help others learn blockchain concepts. If you're learning blockchain development, consider getting the original book for comprehensive explanations and theory.
+
+### Detailed Attribution
+For comprehensive credits, source attribution, and contribution guidelines, see [CREDITS.md](./CREDITS.md).
 
 ---
 

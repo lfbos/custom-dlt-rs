@@ -26,32 +26,432 @@ The `btclib` library provides:
 
 **What is UTXO?**
 
-Unlike traditional databases with account balances, Bitcoin uses **outputs** that can be spent exactly once. Think of them as digital bills/coins:
+Unlike traditional databases with account balances, Bitcoin uses **outputs** that can be spent exactly once. Think of them as physical cash:
 
-- A $20 bill can only be spent once
-- When you spend it, you get change back
-- You can't spend the same bill twice
+#### Real-Life Analogy: Cash at a Coffee Shop
 
-**How it works:**
+Imagine you want to buy a $3 coffee, but you only have a $5 bill:
 
 ```
-Transaction 1:
-  Inputs:  []  (coinbase - no inputs)
-  Outputs: [50 BTC → Alice's address]
+Your Wallet Before:
+├─ $5 bill (this is like a UTXO)
 
-Transaction 2:
-  Inputs:  [50 BTC from Tx1]  ← This UTXO gets "consumed"
-  Outputs: [30 BTC → Bob's address, 20 BTC → Alice's address (change)]
+At the Coffee Shop:
+├─ You give: $5 bill
+├─ Coffee costs: $3
+└─ You receive: $2 bill (change)
+
+Your Wallet After:
+├─ $2 bill (new UTXO)
+└─ [The $5 bill is gone forever - it's been "spent"]
 ```
 
-**Benefits:**
-- ✅ Better privacy (no persistent account balances)
-- ✅ Parallel processing (different UTXOs can be validated independently)
-- ✅ Simpler double-spend prevention (just check if UTXO exists)
+**Key insight:** You can't tear the $5 bill in half! You must spend the entire bill and get change back.
+
+#### How UTXO Works in Blockchain
+
+```
+Alice's Wallet:
+├─ UTXO #1: 50 BTC (from mining block 0)
+
+Alice Sends 30 BTC to Bob:
+
+Transaction {
+  Inputs: [
+    ├─ UTXO #1 (50 BTC) ← Must consume the ENTIRE amount
+    └─ Signed with Alice's private key
+  ]
+  Outputs: [
+    ├─ 30 BTC → Bob's address (payment)
+    ├─ 19.99 BTC → Alice's address (change to herself)
+    └─ 0.01 BTC → (implicit fee for miner)
+  ]
+}
+
+After Transaction:
+├─ UTXO #1 is DESTROYED (marked as spent)
+├─ New UTXO #2: 30 BTC → Bob (Bob can spend this)
+└─ New UTXO #3: 19.99 BTC → Alice (Alice can spend this)
+```
+
+#### More Complex Example: Multiple UTXOs
+
+Alice has received payments from different sources:
+
+```
+Alice's Wallet:
+├─ UTXO #1: 10 BTC (from Bob)
+├─ UTXO #2: 15 BTC (from Charlie)
+└─ UTXO #3: 8 BTC (from mining)
+
+Total Balance: 33 BTC
+
+Alice wants to send 25 BTC to David:
+
+Transaction {
+  Inputs: [
+    ├─ UTXO #1 (10 BTC) ← Not enough alone
+    ├─ UTXO #2 (15 BTC) ← Need to combine multiple
+    └─ Both signed by Alice
+  ]
+  Outputs: [
+    ├─ 25 BTC → David (payment)
+    └─ 0 BTC → Alice (no change needed, perfect amount!)
+  ]
+}
+
+Alice's Wallet After:
+├─ UTXO #3: 8 BTC (untouched, wasn't needed)
+└─ Total Balance: 8 BTC
+```
+
+#### Why Not Just Update an Account Balance?
+
+**Traditional Bank Account Model:**
+```
+Database Table: accounts
+├─ Alice: balance = 100
+└─ Bob: balance = 50
+
+Transfer $30 from Alice to Bob:
+├─ UPDATE accounts SET balance = 70 WHERE name = 'Alice'
+└─ UPDATE accounts SET balance = 80 WHERE name = 'Bob'
+```
+
+**Problems with Account Model in Blockchain:**
+1. ❌ Parallel transactions are hard (what if two transactions try to update Alice's balance simultaneously?)
+2. ❌ Complete transaction history requires separate records
+3. ❌ Difficult to verify you have funds without scanning all history
+
+**Benefits of UTXO Model:**
+- ✅ **Better Privacy**: Each payment creates new addresses/outputs
+- ✅ **Parallel Processing**: Different UTXOs are independent (can validate simultaneously)
+- ✅ **Simpler Double-Spend Prevention**: Just check if UTXO exists in unspent set
+- ✅ **Clear Ownership**: Each UTXO has exactly one owner at a time
+- ✅ **Explicit History**: See exactly which coins came from where
+
+#### UTXO Lifecycle
+
+```
+1. CREATION (Born)
+   └─ New UTXO created as transaction output
+   
+2. UNSPENT (Available)
+   └─ Sits in the "UTXO set"
+   └─ Owner can spend it anytime
+   
+3. SPENT (Dead)
+   └─ Consumed as transaction input
+   └─ Removed from UTXO set forever
+   └─ Cannot be spent again (double-spend prevention)
+```
+
+#### Real Blockchain Example
+
+```
+Block 0: (Genesis/Coinbase)
+Transaction {
+  Inputs: [] (no inputs - new coins created)
+  Outputs: [50 BTC → Miner's address]
+}
+UTXO Set After Block 0:
+└─ UTXO(hash=0xABC...): 50 BTC → Miner
+
+Block 1:
+Transaction {
+  Inputs: [UTXO(hash=0xABC...)] ← Spend the miner's reward
+  Outputs: [
+    ├─ 25 BTC → Alice
+    └─ 25 BTC → Bob
+  ]
+}
+UTXO Set After Block 1:
+├─ UTXO(hash=0xDEF...): 25 BTC → Alice
+└─ UTXO(hash=0x123...): 25 BTC → Bob
+(The original UTXO is gone)
+
+Block 2:
+Transaction {
+  Inputs: [UTXO(hash=0xDEF...)] ← Alice spends hers
+  Outputs: [
+    ├─ 10 BTC → Charlie
+    └─ 14.99 BTC → Alice (change)
+  ]
+}
+UTXO Set After Block 2:
+├─ UTXO(hash=0x123...): 25 BTC → Bob (still unspent)
+├─ UTXO(hash=0x456...): 10 BTC → Charlie
+└─ UTXO(hash=0x789...): 14.99 BTC → Alice
+```
 
 **Implementation:** See `types/transaction.rs`
 
-### 2. Proof-of-Work (PoW)
+### 2. Mempool (Memory Pool)
+
+**What is a Mempool?**
+
+The mempool is a **waiting room** for unconfirmed transactions. When someone creates a transaction, it doesn't immediately go into a block. Instead, it sits in the mempool until a miner includes it in a block.
+
+#### Real-Life Analogy: Airport Security Queue
+
+Think of the mempool like the security line at an airport:
+
+```
+                    ┌─────────────────────────┐
+Passengers Arrive → │  Security Queue         │ → Board Plane
+(Transactions)      │  (Mempool)              │   (Block)
+                    │                         │
+                    │  ┌────────────────────┐ │
+                    │  │ Priority Pass      │ │
+                    │  │ (Higher Fee)       │ │
+                    │  └────────────────────┘ │
+                    │  ┌────────────────────┐ │
+                    │  │ Regular Passenger  │ │
+                    │  │ (Lower Fee)        │ │
+                    │  └────────────────────┘ │
+                    └─────────────────────────┘
+```
+
+- **Passengers** = Transactions
+- **Security Queue** = Mempool
+- **Priority Pass** = Higher transaction fees
+- **Boarding the plane** = Getting included in a block
+
+#### How the Mempool Works
+
+```
+1. User creates transaction
+   └─→ "Send 5 BTC to Bob"
+
+2. Transaction enters mempool
+   └─→ Validated: signatures OK, UTXOs exist, no double-spend
+   └─→ Added to waiting queue
+
+3. Miners select transactions
+   └─→ Pick highest fee transactions first
+   └─→ Limited space (20 transactions per block in our system)
+
+4. Transaction included in block
+   └─→ Removed from mempool
+   └─→ Now confirmed on blockchain
+
+5. Block propagates to network
+   └─→ Other nodes remove same transactions from their mempools
+```
+
+#### Mempool States
+
+```
+Transaction Lifecycle:
+
+┌──────────────┐
+│   Created    │  User signs transaction
+└──────┬───────┘
+       │
+       ↓
+┌──────────────┐
+│  Broadcast   │  Sent to nodes
+└──────┬───────┘
+       │
+       ↓
+┌──────────────┐
+│   Mempool    │  ◄─── We are here (unconfirmed)
+│  (Waiting)   │       • Validated but not in blockchain
+│              │       • Can be replaced (Replace-By-Fee)
+└──────┬───────┘       • Might expire if too old
+       │
+       ↓
+┌──────────────┐
+│   In Block   │  Miner includes in block
+└──────┬───────┘
+       │
+       ↓
+┌──────────────┐
+│  Confirmed   │  Block accepted by network
+└──────────────┘  Transaction is final
+```
+
+#### Why Mempools Exist
+
+**Problem without mempool:**
+```
+Miner mines block immediately upon receiving transaction
+  ↓
+Only 1 transaction per block (wasteful)
+  ↓
+Very slow network (10 seconds per transaction)
+```
+
+**Solution with mempool:**
+```
+Collect many transactions (up to 20 in our system)
+  ↓
+Mine one block with all of them
+  ↓
+Efficient: 20 transactions per 10 seconds = 2 tx/second
+```
+
+#### Fee-Based Prioritization
+
+Transactions in the mempool are **sorted by fee**:
+
+```
+Mempool (sorted highest fee first):
+┌───────────────────────────────────┐
+│ 1. Alice→Bob  (0.5 BTC fee)  ⭐⭐⭐ │ ← Miner picks this first
+│ 2. Carol→Dave (0.1 BTC fee)  ⭐⭐  │
+│ 3. Eve→Frank  (0.01 BTC fee) ⭐   │
+│ 4. Greg→Helen (0.001 BTC fee) ▪   │ ← Might wait a long time
+└───────────────────────────────────┘
+
+When miner creates block:
+- Takes top 20 transactions (highest fees)
+- Lower fee transactions wait for next block
+- Very low fee transactions might never confirm
+```
+
+#### Real Example Flow
+
+```
+Time: 0s
+  User sends transaction: "Alice → Bob: 10 BTC (0.1 BTC fee)"
+  
+Time: 1s
+  Transaction validated and enters mempool
+  Node broadcasts to peers
+  
+Time: 2s
+  10 other transactions arrive (various fees)
+  Mempool now has 11 transactions total
+  
+Time: 5s
+  Miner requests block template
+  Node creates template with highest-fee transactions
+  Alice's transaction included (fee is competitive)
+  
+Time: 8s
+  Miner finds valid nonce
+  Block is broadcast
+  
+Time: 9s
+  All nodes receive block
+  Remove Alice's transaction from mempool
+  Transaction is now CONFIRMED ✓
+```
+
+#### Mempool Properties in This Implementation
+
+```rust
+Mempool Data Structure:
+Vec<(DateTime<Utc>, Transaction)>
+     ↑                    ↑
+     Timestamp          The transaction
+     (for cleanup)
+
+Properties:
+- Sorted by fee (highest first)
+- Transactions older than 10 minutes are removed
+- Maximum of 20 transactions included per block
+- UTXOs used in mempool transactions are "marked"
+```
+
+#### UTXO Marking System
+
+To prevent double-spending within the mempool, we mark UTXOs:
+
+```
+Example:
+1. Alice has UTXO: 50 BTC
+2. Alice creates Transaction A: spend 50 BTC → Bob
+3. Transaction A enters mempool
+4. UTXO is marked: (true, 50 BTC)
+5. Alice tries to create Transaction B: spend same 50 BTC → Charlie
+6. Transaction B is rejected (UTXO is marked)
+
+Alternative (Replace-By-Fee):
+5. Alice creates Transaction B with HIGHER fee
+6. Transaction A is removed from mempool
+7. Transaction B replaces it
+8. UTXO is re-marked for Transaction B
+```
+
+#### Mempool Cleanup
+
+Transactions don't stay in mempool forever:
+
+```
+Cleanup Process (every 30 seconds):
+1. Check timestamp of each transaction
+2. If older than 10 minutes (MAX_MEMPOOL_TRANSACTION_AGE):
+   - Remove from mempool
+   - Unmark its UTXOs
+   - User can try again with higher fee
+
+Why cleanup?
+- Prevents memory bloat
+- Removes stuck low-fee transactions
+- Allows users to retry with higher fees
+```
+
+#### Common Mempool Issues
+
+**Issue 1: Transaction Stuck**
+```
+Problem: Low fee transaction waiting days
+Solution: 
+  - Replace-By-Fee (send again with higher fee)
+  - Wait for mempool to clear
+  - After 10 minutes, transaction expires and can be resent
+```
+
+**Issue 2: Mempool Full**
+```
+Problem: Mempool has 100 transactions, all higher fee than yours
+Solution:
+  - Increase your fee
+  - Wait for blocks to clear mempool
+  - Try during low-traffic time
+```
+
+**Issue 3: Double-Spend Attempt**
+```
+Problem: Try to spend same UTXO twice
+Result:
+  - First transaction: Accepted ✓
+  - Second transaction: Rejected ✗ (UTXO marked)
+Solution:
+  - Use RBF if you want to replace first transaction
+```
+
+#### Mempool vs Confirmed Transactions
+
+```
+┌─────────────────┬──────────────┬────────────────┐
+│                 │   Mempool    │   Confirmed    │
+├─────────────────┼──────────────┼────────────────┤
+│ Reversible?     │ YES          │ NO             │
+│ Can be replaced?│ YES (RBF)    │ NO             │
+│ Guaranteed?     │ NO           │ YES            │
+│ How long?       │ Seconds-mins │ Forever        │
+│ Visible to all? │ Most nodes   │ ALL nodes      │
+│ Trust level     │ LOW          │ HIGH           │
+└─────────────────┴──────────────┴────────────────┘
+```
+
+**Best Practice:**
+- For small amounts: 1 confirmation is usually enough
+- For large amounts: Wait for 6+ confirmations
+- Never trust 0-confirmation (mempool only) for valuable transactions
+
+#### Code References
+
+**Adding to mempool:** See `types/blockchain.rs` → `add_to_mempool()`
+**Mempool cleanup:** See `types/blockchain.rs` → `cleanup_mempool()`
+**Fetching for mining:** See `node/src/handler.rs` → `FetchTemplate`
+
+**Implementation:** See `types/blockchain.rs`
+
+### 3. Proof-of-Work (PoW)
 
 **What is PoW?**
 

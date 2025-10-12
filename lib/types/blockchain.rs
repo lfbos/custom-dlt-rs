@@ -65,27 +65,60 @@ impl Blockchain {
         }
     }
 
+    /// Adds a transaction to the mempool after validation.
+    ///
+    /// This function implements Replace-By-Fee (RBF) logic by allowing new transactions
+    /// to replace existing ones in the mempool if they try to spend the same UTXOs.
+    ///
+    /// # Validation Steps:
+    /// 1. Verify all inputs reference existing UTXOs
+    /// 2. Ensure no duplicate inputs within the transaction
+    /// 3. Handle UTXO marking conflicts (RBF logic)
+    /// 4. Verify input sum ≥ output sum
+    /// 5. Mark UTXOs as "in use" by this mempool transaction
+    /// 6. Sort mempool by fee (highest first)
+    ///
+    /// # UTXO Marking System:
+    /// Each UTXO in the HashMap has a boolean flag:
+    /// - false: UTXO is unspent and not reserved by any mempool transaction
+    /// - true: UTXO is reserved by a pending transaction in mempool
+    ///
+    /// This prevents wallets from creating conflicting transactions.
     pub fn add_to_mempool(&mut self, transaction: Transaction) -> Result<()> {
-        // validate transaction before insertion
-        // all inputs must match known UTXOs, and must be unique
+        // STEP 1: Basic validation - check all inputs exist and are unique
+        // =================================================================
+        // We need to ensure:
+        // a) Every input references a real UTXO
+        // b) No input is used twice in the same transaction (internal double-spend)
         let mut known_inputs: HashSet<Hash> = HashSet::new();
         for input in &transaction.inputs {
+            // Check UTXO exists in our set
             if !self.utxos.contains_key(&input.prev_transaction_output_hash) {
                 return Err(BtcError::InvalidTransaction);
             }
+            // Check this input isn't duplicated
             if known_inputs.contains(&input.prev_transaction_output_hash) {
                 return Err(BtcError::InvalidTransaction);
             }
             known_inputs.insert(input.prev_transaction_output_hash);
         }
-        // check if any of the utxos have the bool mark set to true
-        // and if so, find the transaction that references them
-        // in mempool, remove it, and set all the utxos it references
-        // to false
+
+        // STEP 2: Handle Replace-By-Fee (RBF) logic
+        // ==========================================
+        // If any UTXO we're trying to spend is already marked (reserved by another
+        // mempool transaction), we implement RBF: remove the old transaction and
+        // accept the new one.
+        //
+        // Example scenario:
+        // - Alice creates Transaction A using UTXO #1
+        // - Transaction A enters mempool, UTXO #1 is marked
+        // - Alice creates Transaction B also using UTXO #1 (with higher fee)
+        // - We remove Transaction A from mempool and unmark its UTXOs
+        // - Transaction B replaces it
         for input in &transaction.inputs {
             if let Some((true, _)) = self.utxos.get(&input.prev_transaction_output_hash) {
-                // find the transaction that references this UTXO
-                // we are trying to reference
+                // This UTXO is already marked - find which mempool transaction has it
+                // We search for a transaction whose OUTPUT hash matches our INPUT hash
                 let referencing_transaction =
                     self.mempool.iter().enumerate().find(|(_, (_, tx))| {
                         tx.outputs
@@ -93,21 +126,21 @@ impl Blockchain {
                             .any(|output| output.hash() == input.prev_transaction_output_hash)
                     });
 
-                // If we have found one, unmark all of its UTXOs
+                // Found the conflicting transaction - remove it and unmark all its UTXOs
                 if let Some((idx, (_, referencing_transaction))) = referencing_transaction {
                     for input in &referencing_transaction.inputs {
-                        // set all utxos from this transaction to false
+                        // Unmark all UTXOs that the old transaction was trying to spend
                         self.utxos
                             .entry(input.prev_transaction_output_hash)
                             .and_modify(|(marked, _)| {
                                 *marked = false;
                             });
                     }
-                    // remove the transaction from mempool
+                    // Remove the old transaction from mempool (it's being replaced)
                     self.mempool.remove(idx);
                 } else {
-                    // if, somehow, there is no matching transaction,
-                    // set this utxo to false
+                    // Edge case: UTXO is marked but we can't find the transaction
+                    // This shouldn't happen, but we handle it gracefully by unmarking
                     self.utxos
                         .entry(input.prev_transaction_output_hash)
                         .and_modify(|(marked, _)| {
@@ -116,14 +149,22 @@ impl Blockchain {
                 }
             }
         }
-        // all inputs must be lower than all outputs
+        // STEP 3: Economic validation - verify transaction is financially valid
+        // ======================================================================
+        // The sum of all inputs must be ≥ sum of all outputs
+        // The difference is the transaction fee for the miner
+        //
+        // Example:
+        // Inputs: [10 BTC, 5 BTC] = 15 BTC total
+        // Outputs: [12 BTC, 2.99 BTC] = 14.99 BTC total
+        // Fee: 15 - 14.99 = 0.01 BTC (goes to miner)
         let all_inputs = transaction
             .inputs
             .iter()
             .map(|input| {
                 self.utxos
                     .get(&input.prev_transaction_output_hash)
-                    .expect("BUG: impossible")
+                    .expect("BUG: impossible - we validated this exists above")
                     .1
                     .value
             })
@@ -139,7 +180,10 @@ impl Blockchain {
             return Err(BtcError::InvalidTransaction);
         }
 
-        // Mark the UTXOs as used
+        // STEP 4: Mark UTXOs as reserved by this transaction
+        // ===================================================
+        // Set the boolean flag to true for each UTXO this transaction spends
+        // This prevents double-spending within the mempool
         for input in &transaction.inputs {
             self.utxos
                 .entry(input.prev_transaction_output_hash)
@@ -147,10 +191,21 @@ impl Blockchain {
                     *marked = true;
                 });
         }
-        // push the transaction to the mempool
+
+        // STEP 5: Add to mempool with timestamp
+        // ======================================
+        // Timestamp is used for cleanup (removing old transactions)
         self.mempool.push((Utc::now(), transaction));
-        // sort by miner fee
+
+        // STEP 6: Sort mempool by transaction fee (highest first)
+        // ========================================================
+        // Miners will prefer transactions with higher fees
+        // This prioritization happens every time a transaction is added
+        //
+        // Note: This is inefficient (O(n log n) on every insert)
+        // Production systems use priority queues instead
         self.mempool.sort_by_key(|(_, tx)| {
+            // Calculate fee for this transaction
             let all_inputs = tx
                 .inputs
                 .iter()
@@ -220,33 +275,80 @@ impl Blockchain {
         Ok(())
     }
 
+    /// Adjusts the mining difficulty target to maintain consistent block times.
+    ///
+    /// This function implements Bitcoin's difficulty adjustment algorithm. It runs
+    /// every DIFFICULTY_UPDATE_INTERVAL blocks (50 blocks) and adjusts the target
+    /// based on how fast the last 50 blocks were mined.
+    ///
+    /// # Algorithm:
+    ///
+    /// ```text
+    /// new_target = current_target × (actual_time / target_time)
+    /// ```
+    ///
+    /// # Example:
+    ///
+    /// Target: 500 seconds for 50 blocks (10 seconds per block)
+    ///
+    /// **Case 1: Blocks mined too fast (more mining power)**
+    /// - Actual time: 250 seconds (5 seconds per block)
+    /// - new_target = current_target × (250 / 500) = current_target × 0.5
+    /// - Target becomes smaller (HARDER difficulty)
+    ///
+    /// **Case 2: Blocks mined too slow (less mining power)**
+    /// - Actual time: 1000 seconds (20 seconds per block)
+    /// - new_target = current_target × (1000 / 500) = current_target × 2
+    /// - Target becomes larger (EASIER difficulty)
+    ///
+    /// # Safety Limits:
+    /// - Maximum adjustment: 4x easier or 4x harder per adjustment
+    /// - Never easier than MIN_TARGET (maximum difficulty floor)
     pub fn try_adjust_target(&mut self) {
+        // Early return if blockchain is empty
         if self.blocks.is_empty() {
             return;
         }
 
+        // Only adjust every DIFFICULTY_UPDATE_INTERVAL blocks (e.g., every 50 blocks)
         if self.blocks.len() % crate::DIFFICULTY_UPDATE_INTERVAL as usize != 0 {
             return;
         }
-        // measure the time it took to mine the last
-        // crate::DIFFICULTY_UPDATE_INTERVAL blocks
-        // with chrono
+
+        // STEP 1: Measure actual time taken for last adjustment interval
+        // ==============================================================
+        // Get the timestamp of the block that started this interval
         let start_time = self.blocks
             [self.blocks.len() - crate::DIFFICULTY_UPDATE_INTERVAL as usize]
             .header
             .timestamp;
+        
+        // Get the timestamp of the most recent block
         let end_time = self.blocks.last().unwrap().header.timestamp;
+        
+        // Calculate the actual time difference
         let time_diff = end_time - start_time;
-        // convert time_diff to seconds
         let time_diff_seconds = time_diff.num_seconds();
-        // calculate the ideal number of seconds
+
+        // STEP 2: Calculate target (ideal) time
+        // ======================================
+        // We want IDEAL_BLOCK_TIME (10 seconds) per block
+        // Over DIFFICULTY_UPDATE_INTERVAL blocks, that's:
+        // 10 seconds/block × 50 blocks = 500 seconds total
         let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
-        // multiply the current target by actual time divided by ideal time
+
+        // STEP 3: Calculate new target with adjustment ratio
+        // ===================================================
+        // Formula: new_target = current_target × (actual_time / target_time)
+        //
+        // We use BigDecimal for precision since U256 doesn't support division
         let new_target = BigDecimal::parse_bytes(&self.target.to_string().as_bytes(), 10)
             .expect("BUG: impossible")
             * (BigDecimal::from(time_diff_seconds) / BigDecimal::from(target_seconds));
-        // cut off decimal point and everything after
-        // it from string representation of new_target
+
+        // STEP 4: Convert back to U256
+        // =============================
+        // Truncate decimal places (we only need the integer part)
         let new_target_str = new_target
             .to_string()
             .split('.')
@@ -254,17 +356,24 @@ impl Blockchain {
             .expect("BUG: Expected a decimal point")
             .to_owned();
         let new_target: U256 = U256::from_str_radix(&new_target_str, 10).expect("BUG: impossible");
-        // clamp new_target to be within the range of
-        // 4 * self.target and self.target / 4
+
+        // STEP 5: Apply safety clamps
+        // ============================
+        // Prevent extreme difficulty swings by limiting adjustment to 4x in either direction
+        // This prevents a single adjustment from making mining impossibly hard or trivially easy
         let new_target = if new_target < self.target / 4 {
+            // Don't make it more than 4x harder
             self.target / 4
         } else if new_target > self.target * 4 {
+            // Don't make it more than 4x easier
             self.target * 4
         } else {
             new_target
         };
-        // if the new target is more than the minimum target,
-        // set it to the minimum target
+
+        // STEP 6: Apply absolute maximum (difficulty floor)
+        // ==================================================
+        // Never allow target to exceed MIN_TARGET (the easiest allowed difficulty)
         self.target = new_target.min(crate::MIN_TARGET);
     }
 

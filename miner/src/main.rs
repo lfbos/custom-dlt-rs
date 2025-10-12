@@ -12,6 +12,12 @@ use btclib::{crypto::PublicKey, network::Message, types::Block, util::Saveable};
 use clap::Parser;
 use tokio::{net::TcpStream, sync::Mutex, time::interval};
 
+/// Number of nonces to try before checking for new template or events
+const MINING_BATCH_SIZE: usize = 2_000_000;
+
+/// Interval in seconds to fetch new templates or validate current one
+const TEMPLATE_FETCH_INTERVAL_SECS: u64 = 5;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -46,7 +52,7 @@ impl Miner {
 
     async fn run(&self) -> Result<()> {
         self.spawn_mining_thread();
-        let mut template_interval = interval(Duration::from_secs(5));
+        let mut template_interval = interval(Duration::from_secs(TEMPLATE_FETCH_INTERVAL_SECS));
 
         loop {
             let receiver_clone = self.mined_block_receiver.clone();
@@ -65,11 +71,11 @@ impl Miner {
         let template = self.current_template.clone();
         let mining = self.mining.clone();
         let sender = self.mined_block_sender.clone();
-        thread::spawn(move || loop {
-            if mining.load(Ordering::Relaxed) {
-                if let Some(mut block) = template.lock().unwrap().clone() {
-                    println!("Mining block with target: {}", block.header.target);
-                    if block.header.mine(2_000_000) {
+        thread::spawn(move ||             loop {
+                if mining.load(Ordering::Relaxed) {
+                    if let Some(mut block) = template.lock().unwrap().clone() {
+                        println!("Mining block with target: {}", block.header.target);
+                        if block.header.mine(MINING_BATCH_SIZE) {
                         println!("Block mined: {}", block.hash());
                         sender.send(block).expect("Failed to send mined block");
                         mining.store(false, Ordering::Relaxed);

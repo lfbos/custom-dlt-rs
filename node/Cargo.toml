@@ -2,6 +2,9 @@
 name = "node"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Luis Boscan"]
+description = "Full node implementation for educational blockchain"
 
 [dependencies]
 anyhow = "1.0.100"

@@ -1,3 +1,16 @@
+//! # BtcLib - Educational Blockchain Library
+//!
+//! This library implements core blockchain functionality based on Bitcoin's design.
+//! It is an educational implementation based on the book "Building Bitcoin in Rust".
+//!
+//! ## Attribution
+//! - **Based on:** "Building Bitcoin in Rust" (book)
+//! - **Implementation:** Luis Boscan (@lfbos)
+//! - **License:** MIT
+//! - **Purpose:** Educational - to help others learn blockchain technology
+//!
+//! For detailed credits and acknowledgments, see CREDITS.md in the repository root.
+
 use serde::{Deserialize, Serialize};
 use uint::construct_uint;
 construct_uint! {
