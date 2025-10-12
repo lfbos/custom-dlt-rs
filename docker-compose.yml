@@ -5,6 +5,10 @@ version: '3.8'
 # - 3 nodes (seed node + 2 peers)
 # - 2 miners (competing for blocks)
 # - Shared volumes for data persistence
+#
+# Configuration:
+# - Copy .env.example to .env and customize
+# - Or use .env.testnet.example / .env.devnet.example for different networks
 
 services:
   # =============================================================================
@@ -17,10 +21,19 @@ services:
     container_name: blockchain-node1
     hostname: node1
     ports:
-      - "9000:9000"  # Expose to host
+      - "${NODE1_PORT:-9000}:9000"  # Configurable via env var
     volumes:
       - node1-data:/data
-    command: ["--port", "9000", "--blockchain-file", "/data/blockchain.cbor"]
+    environment:
+      - NODE_PORT=9000
+      - BLOCKCHAIN_FILE=/data/blockchain.cbor
+      - NETWORK_ID=${NETWORK_ID:-mainnet}
+      - IDEAL_BLOCK_TIME=${IDEAL_BLOCK_TIME:-10}
+      - DIFFICULTY_UPDATE_INTERVAL=${DIFFICULTY_UPDATE_INTERVAL:-50}
+      - MAX_MEMPOOL_TX_AGE=${MAX_MEMPOOL_TX_AGE:-600}
+      - BLOCK_TX_CAP=${BLOCK_TX_CAP:-20}
+      - RUST_LOG=${RUST_LOG:-info}
+      - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
     networks:
       blockchain-net:
         ipv4_address: 172.25.0.10
@@ -41,15 +54,15 @@ services:
     container_name: blockchain-node2
     hostname: node2
     ports:
-      - "9001:9001"
+      - "${NODE2_PORT:-9001}:9001"
     volumes:
       - node2-data:/data
-    command:
-      - "--port"
-      - "9001"
-      - "--blockchain-file"
-      - "/data/blockchain.cbor"
-      - "172.25.0.10:9000"  # Connect to node1
+    environment:
+      - NODE_PORT=9001
+      - BLOCKCHAIN_FILE=/data/blockchain.cbor
+      - INITIAL_PEERS=172.25.0.10:9000
+      - NETWORK_ID=${NETWORK_ID:-mainnet}
+      - RUST_LOG=${RUST_LOG:-info}
     networks:
       blockchain-net:
         ipv4_address: 172.25.0.11
@@ -68,16 +81,15 @@ services:
     container_name: blockchain-node3
     hostname: node3
     ports:
-      - "9002:9002"
+      - "${NODE3_PORT:-9002}:9002"
     volumes:
       - node3-data:/data
-    command:
-      - "--port"
-      - "9002"
-      - "--blockchain-file"
-      - "/data/blockchain.cbor"
-      - "172.25.0.10:9000"  # Connect to node1
-      - "172.25.0.11:9001"  # Connect to node2
+    environment:
+      - NODE_PORT=9002
+      - BLOCKCHAIN_FILE=/data/blockchain.cbor
+      - INITIAL_PEERS=172.25.0.10:9000,172.25.0.11:9001
+      - NETWORK_ID=${NETWORK_ID:-mainnet}
+      - RUST_LOG=${RUST_LOG:-info}
     networks:
       blockchain-net:
         ipv4_address: 172.25.0.12
@@ -100,12 +112,12 @@ services:
     volumes:
       - miner1-keys:/keys
     environment:
-      - RUST_LOG=info
-    command:
-      - "--address"
-      - "172.25.0.10:9000"
-      - "--public-key-file"
-      - "/keys/miner1.pub.pem"
+      - MINER_NODE_ADDRESS=172.25.0.10:9000
+      - MINER_PUBLIC_KEY=/keys/miner1.pub.pem
+      - MINING_BATCH_SIZE=${MINING_BATCH_SIZE:-2000000}
+      - TEMPLATE_FETCH_INTERVAL=${TEMPLATE_FETCH_INTERVAL:-5}
+      - NETWORK_ID=${NETWORK_ID:-mainnet}
+      - RUST_LOG=${RUST_LOG:-info}
     networks:
       - blockchain-net
     depends_on:
@@ -125,12 +137,12 @@ services:
     volumes:
       - miner2-keys:/keys
     environment:
-      - RUST_LOG=info
-    command:
-      - "--address"
-      - "172.25.0.11:9001"
-      - "--public-key-file"
-      - "/keys/miner2.pub.pem"
+      - MINER_NODE_ADDRESS=172.25.0.11:9001
+      - MINER_PUBLIC_KEY=/keys/miner2.pub.pem
+      - MINING_BATCH_SIZE=${MINING_BATCH_SIZE:-2000000}
+      - TEMPLATE_FETCH_INTERVAL=${TEMPLATE_FETCH_INTERVAL:-5}
+      - NETWORK_ID=${NETWORK_ID:-mainnet}
+      - RUST_LOG=${RUST_LOG:-info}
     networks:
       - blockchain-net
     depends_on:

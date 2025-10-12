@@ -120,3 +120,13 @@ docker/backups/
 # Wallet configs (may contain sensitive paths)
 *_wallet.toml
 wallet_config.toml
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# But allow example files
+!.env.example
+!.env.testnet.example
+!.env.devnet.example

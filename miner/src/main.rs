@@ -8,23 +8,20 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use btclib::{crypto::PublicKey, network::Message, types::Block, util::Saveable};
+use btclib::{config::BlockchainConfig, crypto::PublicKey, network::Message, types::Block, util::Saveable};
 use clap::Parser;
 use tokio::{net::TcpStream, sync::Mutex, time::interval};
-
-/// Number of nonces to try before checking for new template or events
-const MINING_BATCH_SIZE: usize = 2_000_000;
-
-/// Interval in seconds to fetch new templates or validate current one
-const TEMPLATE_FETCH_INTERVAL_SECS: u64 = 5;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[arg(short, long)]
-    address: String,
+    /// Node address to connect to (defaults to MINER_NODE_ADDRESS env var)
+    address: Option<String>,
+    
     #[arg(short, long)]
-    public_key_file: String,
+    /// Public key file for receiving rewards (defaults to MINER_PUBLIC_KEY env var)
+    public_key_file: Option<String>,
 }
 
 struct Miner {
@@ -51,8 +48,9 @@ impl Miner {
     }
 
     async fn run(&self) -> Result<()> {
+        let config = BlockchainConfig::global();
         self.spawn_mining_thread();
-        let mut template_interval = interval(Duration::from_secs(TEMPLATE_FETCH_INTERVAL_SECS));
+        let mut template_interval = interval(Duration::from_secs(config.mining.template_fetch_interval_secs));
 
         loop {
             let receiver_clone = self.mined_block_receiver.clone();
@@ -68,21 +66,24 @@ impl Miner {
     }
 
     fn spawn_mining_thread(&self) -> thread::JoinHandle<()> {
+        let config = BlockchainConfig::global().clone();
         let template = self.current_template.clone();
         let mining = self.mining.clone();
         let sender = self.mined_block_sender.clone();
-        thread::spawn(move ||             loop {
+        thread::spawn(move || {
+            loop {
                 if mining.load(Ordering::Relaxed) {
                     if let Some(mut block) = template.lock().unwrap().clone() {
                         println!("Mining block with target: {}", block.header.target);
-                        if block.header.mine(MINING_BATCH_SIZE) {
-                        println!("Block mined: {}", block.hash());
-                        sender.send(block).expect("Failed to send mined block");
-                        mining.store(false, Ordering::Relaxed);
+                        if block.header.mine(config.mining.mining_batch_size) {
+                            println!("Block mined: {}", block.hash());
+                            sender.send(block).expect("Failed to send mined block");
+                            mining.store(false, Ordering::Relaxed);
+                        }
                     }
                 }
+                thread::yield_now();
             }
-            thread::yield_now();
         })
     }
 
@@ -158,9 +159,22 @@ impl Miner {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load configuration
+    let config = BlockchainConfig::global();
+    
     let cli = Cli::parse();
-    let public_key = PublicKey::load_from_file(&cli.public_key_file)
+    
+    // Priority: CLI args > Environment vars > Defaults
+    let address = cli.address.unwrap_or_else(|| config.mining.node_address.clone());
+    let public_key_file = cli.public_key_file.unwrap_or_else(|| config.mining.public_key_file.clone());
+    
+    println!("⛏️  Starting miner");
+    println!("Network: {}", config.network.network_id);
+    println!("Connecting to node: {}", address);
+    println!("Rewards will be sent to key: {}", public_key_file);
+    
+    let public_key = PublicKey::load_from_file(&public_key_file)
         .map_err(|e| anyhow!("Error reading public key: {}", e))?;
-    let miner = Miner::new(cli.address, public_key).await?;
+    let miner = Miner::new(address, public_key).await?;
     miner.run().await
 }

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use argh::FromArgs;
+use btclib::config::BlockchainConfig;
 use btclib::types::Blockchain;
 use dashmap::DashMap;
 use static_init::dynamic;
@@ -19,25 +20,43 @@ pub static NODES: DashMap<String, TcpStream> = DashMap::new();
 #[derive(FromArgs)]
 /// A toy blockchain node
 struct Args {
-    #[argh(option, default = "9000")]
-    /// port number
-    port: u16,
-    #[argh(option, default = "String::from(\"./blockchain.cbor\")")]
-    /// blockchain file location
-    blockchain_file: String,
+    #[argh(option)]
+    /// port number (defaults to NODE_PORT env var or 9000)
+    port: Option<u16>,
+    #[argh(option)]
+    /// blockchain file location (defaults to BLOCKCHAIN_FILE env var or ./blockchain.cbor)
+    blockchain_file: Option<String>,
     #[argh(positional)]
-    /// addresses of initial nodes
+    /// addresses of initial nodes (can also use INITIAL_PEERS env var)
     nodes: Vec<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load configuration from environment
+    let config = BlockchainConfig::global();
+    
     // Parse command line arguments
     let args: Args = argh::from_env();
-    // Access the parsed arguments
-    let port = args.port;
-    let blockchain_file = args.blockchain_file;
-    let nodes = args.nodes;
+    
+    // Priority: CLI args > Environment vars > Defaults
+    let port = args.port.unwrap_or(config.node.port);
+    let blockchain_file = args.blockchain_file
+        .unwrap_or_else(|| config.node.blockchain_file.clone());
+    
+    // Combine CLI nodes with env var nodes
+    let mut nodes = args.nodes;
+    if nodes.is_empty() {
+        nodes = config.node.initial_peers.clone();
+    }
+    
+    println!("🚀 Starting blockchain node");
+    println!("Network: {}", config.network.network_id);
+    println!("Port: {}", port);
+    println!("Blockchain file: {}", blockchain_file);
+    if !nodes.is_empty() {
+        println!("Initial peers: {:?}", nodes);
+    }
 
     // Check if the blockchain_file exists
     if Path::new(&blockchain_file).exists() {

@@ -38,6 +38,8 @@ pub const DIFFICULTY_UPDATE_INTERVAL: u64 = 50;
 pub const MAX_MEMPOOL_TRANSACTION_AGE: u64 = 600;
 // maximum amount of transactions allowed in a block
 pub const BLOCK_TRANSACTION_CAP: usize = 20;
+
+pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod network;

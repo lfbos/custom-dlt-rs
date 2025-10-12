@@ -1,15 +1,10 @@
 use anyhow::{Context, Result};
+use btclib::config::BlockchainConfig;
 use btclib::network::Message;
 use btclib::types::Blockchain;
 use btclib::util::Saveable;
 use tokio::net::TcpStream;
 use tokio::time;
-
-/// Interval in seconds between mempool cleanup operations
-const MEMPOOL_CLEANUP_INTERVAL_SECS: u64 = 30;
-
-/// Interval in seconds between blockchain persistence operations
-const BLOCKCHAIN_SAVE_INTERVAL_SECS: u64 = 15;
 
 pub async fn load_blockchain(blockchain_file: &str) -> Result<()> {
     println!("blockchain file exists, loading...");
@@ -108,7 +103,8 @@ pub async fn download_blockchain(node: &str, count: u32) -> Result<()> {
 }
 
 pub async fn cleanup() {
-    let mut interval = time::interval(time::Duration::from_secs(MEMPOOL_CLEANUP_INTERVAL_SECS));
+    let config = BlockchainConfig::global();
+    let mut interval = time::interval(time::Duration::from_secs(config.node.mempool_cleanup_interval_secs));
     loop {
         interval.tick().await;
         println!("cleaning the mempool from old transactions");
@@ -118,7 +114,8 @@ pub async fn cleanup() {
 }
 
 pub async fn save(name: String) {
-    let mut interval = time::interval(time::Duration::from_secs(BLOCKCHAIN_SAVE_INTERVAL_SECS));
+    let config = BlockchainConfig::global();
+    let mut interval = time::interval(time::Duration::from_secs(config.node.blockchain_save_interval_secs));
     loop {
         interval.tick().await;
         println!("saving blockchain to drive...");
