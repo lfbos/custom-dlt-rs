@@ -12,7 +12,7 @@ use spki::EncodePublicKey;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Signature(ECDSASignature<Secp256k1>);
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicKey(VerifyingKey<Secp256k1>);
 
 impl Saveable for PublicKey {
