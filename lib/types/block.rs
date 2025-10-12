@@ -104,7 +104,7 @@ impl Block {
         Ok(())
     }
 
-    fn calculate_miner_fees(
+    pub fn calculate_miner_fees(
         &self,
         utxos: &HashMap<Hash, (bool, TransactionOutput)>,
     ) -> Result<u64> {

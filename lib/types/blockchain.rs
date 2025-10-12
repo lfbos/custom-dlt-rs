@@ -298,6 +298,11 @@ impl Blockchain {
             });
         }
     }
+    pub fn calculate_block_reward(&self) -> u64 {
+        let block_height = self.block_height();
+        let halvings = block_height / crate::HALVING_INTERVAL;
+        (crate::INITIAL_REWARD * 10u64.pow(8)) >> halvings
+    }
 }
 
 impl Saveable for Blockchain {
