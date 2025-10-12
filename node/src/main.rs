@@ -1,6 +1,6 @@
 use anyhow::Result;
 use argh::FromArgs;
-use btclib::types::{Block, Blockchain};
+use btclib::types::{Blockchain};
 use dashmap::DashMap;
 use static_init::dynamic;
 use std::path::Path;
@@ -33,7 +33,6 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Parse command line arguments
-    let args: Args = argh::from_env();
     let args: Args = argh::from_env();
     // Access the parsed arguments
     let port = args.port;
