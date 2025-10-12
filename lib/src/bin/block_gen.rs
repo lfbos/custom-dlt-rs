@@ -1,11 +1,11 @@
 use std::{env, process::exit, vec};
 
 use btclib::{
-    U256,
     crypto::PrivateKey,
     sha256::Hash,
     types::{Block, BlockHeader, Transaction, TransactionOutput},
     util::{MerkleRoot, Saveable},
+    U256,
 };
 use chrono::Utc;
 use uuid::Uuid;

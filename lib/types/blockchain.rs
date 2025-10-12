@@ -1,8 +1,8 @@
 use super::{Block, Transaction, TransactionOutput};
-use crate::U256;
 use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
 use crate::util::{MerkleRoot, Saveable};
+use crate::U256;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -59,8 +59,7 @@ impl Blockchain {
                 }
 
                 for output in transaction.outputs.iter() {
-                    self.utxos
-                        .insert(transaction.hash(), (false, output.clone()));
+                    self.utxos.insert(output.hash(), (false, output.clone()));
                 }
             }
         }
