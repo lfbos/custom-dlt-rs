@@ -297,12 +297,12 @@ Transactions in the mempool are **sorted by fee**:
 
 ```
 Mempool (sorted highest fee first):
-┌───────────────────────────────────┐
-│ 1. Alice→Bob  (0.5 BTC fee)  ⭐⭐⭐ │ ← Miner picks this first
-│ 2. Carol→Dave (0.1 BTC fee)  ⭐⭐  │
-│ 3. Eve→Frank  (0.01 BTC fee) ⭐   │
-│ 4. Greg→Helen (0.001 BTC fee) ▪   │ ← Might wait a long time
-└───────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ 1. Alice→Bob  (0.5 BTC fee)   ***   │ ← Miner picks this first
+│ 2. Carol→Dave (0.1 BTC fee)   **    │
+│ 3. Eve→Frank  (0.01 BTC fee)  *     │
+│ 4. Greg→Helen (0.001 BTC fee) ▪     │ ← Might wait a long time
+└─────────────────────────────────────┘
 
 When miner creates block:
 - Takes top 20 transactions (highest fees)

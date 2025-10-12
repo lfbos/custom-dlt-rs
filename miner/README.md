@@ -121,47 +121,47 @@ miner/
 
 ```
 ┌────────────────────────────────────────────┐
-│           Miner Process                    │
+│               Miner Process                │
 ├────────────────────────────────────────────┤
 │                                            │
 │  ┌──────────────────────────────────────┐  │
-│  │    Main Async Runtime (Tokio)        │ │
-│  │                                      │ │
-│  │  ┌────────────────────────────────┐  │ │
-│  │  │  Template Fetcher              │  │ │
-│  │  │  (every 5 seconds)             │  │ │
-│  │  │  • Request block template      │  │ │
-│  │  │  • Validate current template   │  │ │
-│  │  └────────────────────────────────┘  │ │
-│  │            ↓              ↑          │ │
-│  │            ↓              ↑          │ │
-│  │  ┌────────────────────────────────┐  │ │
-│  │  │  Shared Template Storage       │  │ │
-│  │  │  Arc<Mutex<Option<Block>>>     │  │ │
-│  │  └────────────────────────────────┘  │ │
-│  │            ↓              ↑          │ │
-│  │            ↓              ↑          │ │
-│  │  ┌────────────────────────────────┐  │ │
-│  │  │  Mining Thread (CPU-bound)     │  │ │
-│  │  │  • Clone template              │  │ │
-│  │  │  • Increment nonce 2M times    │  │ │
-│  │  │  • Check hash vs target        │  │ │
-│  │  │  • Send if found               │  │ │
-│  │  └────────────────────────────────┘  │ │
-│  │            ↓                         │ │
-│  │            ↓                         │ │
-│  │  ┌────────────────────────────────┐  │ │
-│  │  │  Block Submitter               │  │ │
-│  │  │  • Receives mined blocks       │  │ │
-│  │  │  • Submits to node             │  │ │
-│  │  └────────────────────────────────┘  │ │
-│  │                                      │ │
-│  └──────────────────────────────────────┘ │
-│                                           │
-│  TCP Connection to Node                   │
-│  └──→ 127.0.0.1:9000                      │
-│                                           │
-└───────────────────────────────────────────┘
+│  │      Main Async Runtime (Tokio)      │  │
+│  │                                      │  │
+│  │  ┌────────────────────────────────┐  │  │
+│  │  │  Template Fetcher              │  │  │
+│  │  │  (every 5 seconds)             │  │  │
+│  │  │  • Request block template      │  │  │
+│  │  │  • Validate current template   │  │  │
+│  │  └────────────────────────────────┘  │  │
+│  │            ↓              ↑          │  │
+│  │            ↓              ↑          │  │
+│  │  ┌────────────────────────────────┐  │  │
+│  │  │  Shared Template Storage       │  │  │
+│  │  │  Arc<Mutex<Option<Block>>>     │  │  │
+│  │  └────────────────────────────────┘  │  │
+│  │            ↓              ↑          │  │
+│  │            ↓              ↑          │  │
+│  │  ┌────────────────────────────────┐  │  │
+│  │  │  Mining Thread (CPU-bound)     │  │  │
+│  │  │  • Clone template              │  │  │
+│  │  │  • Increment nonce 2M times    │  │  │
+│  │  │  • Check hash vs target        │  │  │
+│  │  │  • Send if found               │  │  │
+│  │  └────────────────────────────────┘  │  │
+│  │            ↓                         │  │
+│  │            ↓                         │  │
+│  │  ┌────────────────────────────────┐  │  │
+│  │  │  Block Submitter               │  │  │
+│  │  │  • Receives mined blocks       │  │  │
+│  │  │  • Submits to node             │  │  │
+│  │  └────────────────────────────────┘  │  │
+│  │                                      │  │
+│  └──────────────────────────────────────┘  │
+│                                            │
+│  TCP Connection to Node                    │
+│  └──→ 127.0.0.1:9000                       │
+│                                            │
+└────────────────────────────────────────────┘
 ```
 
 ### Key Components

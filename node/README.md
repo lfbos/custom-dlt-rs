@@ -90,14 +90,14 @@ When a new node joins:
 Nodes communicate via TCP sockets:
 
 ```
-Node A                         Node B
-  |                              |
+Node A                        Node B
+  |                             |
   |--- Connect to Node B ------→|
-  |                              |
+  |                             |
   |←-- Send NodeList -----------|
-  |                              |
+  |                             |
   |--- Request Block 42 -------→|
-  |                              |
+  |                             |
   |←-- Send Block 42 -----------|
 ```
 
@@ -121,34 +121,34 @@ node/
 │              Node Process               │
 ├─────────────────────────────────────────┤
 │                                         │
-│  ┌───────────────────────────────────┐ │
-│  │      TCP Listener (Port 9000)     │ │
-│  └─────────────┬─────────────────────┘ │
+│  ┌───────────────────────────────────┐  │
+│  │      TCP Listener (Port 9000)     │  │
+│  └─────────────┬─────────────────────┘  │
 │                │                        │
 │                ↓                        │
-│  ┌───────────────────────────────────┐ │
-│  │   Connection Handler (per peer)   │ │
-│  │   • Receive messages              │ │
-│  │   • Validate requests             │ │
-│  │   • Update blockchain state       │ │
-│  │   • Send responses                │ │
-│  └─────────────┬─────────────────────┘ │
+│  ┌───────────────────────────────────┐  │
+│  │   Connection Handler (per peer)   │  │
+│  │   • Receive messages              │  │
+│  │   • Validate requests             │  │
+│  │   • Update blockchain state       │  │
+│  │   • Send responses                │  │
+│  └─────────────┬─────────────────────┘  │
 │                │                        │
 │                ↓                        │
-│  ┌───────────────────────────────────┐ │
-│  │     Global Blockchain State       │ │
-│  │   (RwLock<Blockchain>)            │ │
-│  │   • Blocks                        │ │
-│  │   • UTXOs                         │ │
-│  │   • Mempool                       │ │
-│  │   • Target difficulty             │ │
-│  └───────────────────────────────────┘ │
+│  ┌───────────────────────────────────┐  │
+│  │     Global Blockchain State       │  │
+│  │   (RwLock<Blockchain>)            │  │
+│  │   • Blocks                        │  │
+│  │   • UTXOs                         │  │
+│  │   • Mempool                       │  │
+│  │   • Target difficulty             │  │
+│  └───────────────────────────────────┘  │
 │                                         │
-│  ┌───────────────────────────────────┐ │
-│  │    Background Tasks               │ │
-│  │   • Periodic mempool cleanup      │ │
-│  │   • Periodic blockchain save      │ │
-│  └───────────────────────────────────┘ │
+│  ┌───────────────────────────────────┐  │
+│  │    Background Tasks               │  │
+│  │   • Periodic mempool cleanup      │  │
+│  │   • Periodic blockchain save      │  │
+│  └───────────────────────────────────┘  │
 │                                         │
 └─────────────────────────────────────────┘
 ```
