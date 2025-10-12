@@ -1,3 +1,4 @@
+use btclib::config;
 use btclib::network::Message;
 use btclib::sha256::Hash;
 use btclib::types::{Block, BlockHeader, Transaction, TransactionOutput};
@@ -138,7 +139,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
                     blockchain
                         .mempool()
                         .iter()
-                        .take(btclib::BLOCK_TRANSACTION_CAP)
+                        .take(config::block_transaction_cap())
                         .map(|(_, tx)| tx)
                         .cloned()
                         .collect::<Vec<_>>(),

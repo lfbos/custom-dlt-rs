@@ -2,7 +2,7 @@ use super::{Transaction, TransactionInput, TransactionOutput};
 use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
 use crate::util::{MerkleRoot, Saveable};
-use crate::U256;
+use crate::{config, U256};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -91,8 +91,8 @@ impl Block {
             return Err(BtcError::InvalidTransaction);
         }
         let miner_fees = self.calculate_miner_fees(utxos)?;
-        let block_reward = crate::INITIAL_REWARD * 10u64.pow(8)
-            / 2u64.pow((predicted_block_height / crate::HALVING_INTERVAL) as u32);
+        let block_reward = config::initial_reward() * 10u64.pow(8)
+            / 2u64.pow((predicted_block_height / config::halving_interval()) as u32);
         let total_coinbase_outputs: u64 = coinbase_transaction
             .outputs
             .iter()

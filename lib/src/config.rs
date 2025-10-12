@@ -120,13 +120,14 @@ impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
             network_id: "mainnet".to_string(),
-            initial_reward: 50,
-            halving_interval: 210,
-            ideal_block_time: 10,
-            difficulty_update_interval: 50,
-            max_mempool_transaction_age: 600,
-            block_transaction_cap: 20,
-            min_target_hex: "0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF".to_string(),
+            initial_reward: crate::INITIAL_REWARD,
+            halving_interval: crate::HALVING_INTERVAL,
+            ideal_block_time: crate::IDEAL_BLOCK_TIME,
+            difficulty_update_interval: crate::DIFFICULTY_UPDATE_INTERVAL,
+            max_mempool_transaction_age: crate::MAX_MEMPOOL_TRANSACTION_AGE,
+            block_transaction_cap: crate::BLOCK_TRANSACTION_CAP,
+            // Convert U256 constant to hex string
+            min_target_hex: format!("0x{:x}", crate::MIN_TARGET),
         }
     }
 }
@@ -216,6 +217,47 @@ impl BlockchainConfig {
                 ])
             })
     }
+}
+
+// =============================================================================
+// Helper Functions for Easy Access
+// =============================================================================
+// These functions provide easy access to configuration values.
+// They use environment variables if set, otherwise fall back to constants.
+
+/// Get initial reward (configurable via INITIAL_REWARD env var)
+pub fn initial_reward() -> u64 {
+    BlockchainConfig::global().network.initial_reward
+}
+
+/// Get halving interval (configurable via HALVING_INTERVAL env var)
+pub fn halving_interval() -> u64 {
+    BlockchainConfig::global().network.halving_interval
+}
+
+/// Get ideal block time (configurable via IDEAL_BLOCK_TIME env var)
+pub fn ideal_block_time() -> u64 {
+    BlockchainConfig::global().network.ideal_block_time
+}
+
+/// Get minimum target (configurable via MIN_TARGET_HEX env var)
+pub fn min_target() -> U256 {
+    BlockchainConfig::global().min_target()
+}
+
+/// Get difficulty update interval (configurable via DIFFICULTY_UPDATE_INTERVAL env var)
+pub fn difficulty_update_interval() -> u64 {
+    BlockchainConfig::global().network.difficulty_update_interval
+}
+
+/// Get max mempool transaction age (configurable via MAX_MEMPOOL_TX_AGE env var)
+pub fn max_mempool_transaction_age() -> u64 {
+    BlockchainConfig::global().network.max_mempool_transaction_age
+}
+
+/// Get block transaction cap (configurable via BLOCK_TX_CAP env var)
+pub fn block_transaction_cap() -> usize {
+    BlockchainConfig::global().network.block_transaction_cap
 }
 
 impl NetworkConfig {

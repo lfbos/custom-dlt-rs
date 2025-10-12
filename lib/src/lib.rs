@@ -19,24 +19,55 @@ construct_uint! {
     #[derive(Deserialize, Serialize)]
     pub struct U256(4);
 }
-// initial reward in bitcoin - multiply by 10^8 to get satoshis
+// =============================================================================
+// BLOCKCHAIN PARAMETERS - Default Values
+// =============================================================================
+// These constants define the default blockchain parameters.
+// They are used by the config module when no environment variables are set.
+//
+// USAGE:
+//   - Direct use: Still works but not recommended
+//   - Via config: config::initial_reward() (reads env vars, falls back to these)
+//
+// CONFIGURATION:
+//   To customize, create a .env file:
+//     cp .env.example .env
+//     nano .env  # Edit: INITIAL_REWARD=100
+//
+// The config module uses these as defaults and allows environment variable overrides.
+// =============================================================================
+
+/// Initial reward in bitcoin - multiply by 10^8 to get satoshis
+/// **Default value** used by config module when INITIAL_REWARD env var is not set
 pub const INITIAL_REWARD: u64 = 50;
-// halving interval in blocks
+
+/// Halving interval in blocks
+/// **Default value** used by config module when HALVING_INTERVAL env var is not set
 pub const HALVING_INTERVAL: u64 = 210;
-// ideal block time in seconds
+
+/// Ideal block time in seconds
+/// **Default value** used by config module when IDEAL_BLOCK_TIME env var is not set
 pub const IDEAL_BLOCK_TIME: u64 = 10;
-// minimum target
+
+/// Minimum target (easiest difficulty)
+/// **Default value** used by config module when MIN_TARGET_HEX env var is not set
 pub const MIN_TARGET: U256 = U256([
     0xFFFF_FFFF_FFFF_FFFF,
     0xFFFF_FFFF_FFFF_FFFF,
     0xFFFF_FFFF_FFFF_FFFF,
     0x0000_FFFF_FFFF_FFFF,
 ]);
-// difficulty update interval in blocks
+
+/// Difficulty update interval in blocks
+/// **Default value** used by config module when DIFFICULTY_UPDATE_INTERVAL env var is not set
 pub const DIFFICULTY_UPDATE_INTERVAL: u64 = 50;
-// maximum mempool transaction age in seconds
+
+/// Maximum mempool transaction age in seconds
+/// **Default value** used by config module when MAX_MEMPOOL_TX_AGE env var is not set
 pub const MAX_MEMPOOL_TRANSACTION_AGE: u64 = 600;
-// maximum amount of transactions allowed in a block
+
+/// Maximum amount of transactions allowed in a block
+/// **Default value** used by config module when BLOCK_TX_CAP env var is not set
 pub const BLOCK_TRANSACTION_CAP: usize = 20;
 
 pub mod config;
