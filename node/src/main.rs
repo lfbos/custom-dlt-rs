@@ -1,11 +1,11 @@
+use anyhow::Result;
 use argh::FromArgs;
+use btclib::types::{Block, Blockchain};
 use dashmap::DashMap;
 use static_init::dynamic;
-use anyhow::Result;
+use std::path::Path;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
-use btclib::types::{Block, Blockchain};
-use std::path::Path;
 
 mod handler;
 mod util;
@@ -22,10 +22,7 @@ struct Args {
     #[argh(option, default = "9000")]
     /// port number
     port: u16,
-    #[argh(
-        option,
-        default = "String::from(\"./blockchain.cbor\")"
-    )]
+    #[argh(option, default = "String::from(\"./blockchain.cbor\")")]
     /// blockchain file location
     blockchain_file: String,
     #[argh(positional)]
@@ -44,25 +41,18 @@ async fn main() -> Result<()> {
     let nodes = args.nodes;
 
     // Check if the blockchain_file exists
-    if Path::new(&blockchain_file).exists() { 
+    if Path::new(&blockchain_file).exists() {
         util::load_blockchain(&blockchain_file).await?;
     } else {
         println!("blockchain file does not exist!");
         util::populate_connections(&nodes).await?;
-        println!(
-            "total amount of known nodes: {}",
-            NODES.len()
-        );
+        println!("total amount of known nodes: {}", NODES.len());
         if nodes.is_empty() {
             println!("no initial nodes provided, starting as a seed node");
         } else {
             let (longest_name, longest_count) = util::find_longest_chain_node().await?;
             // request the blockchain from the node with the longest blockchain
-            util::download_blockchain(
-                &longest_name,
-                longest_count,
-            )
-            .await?;
+            util::download_blockchain(&longest_name, longest_count).await?;
             println!("blockchain downloaded from {}", longest_name);
             // recalculate utxos
             {

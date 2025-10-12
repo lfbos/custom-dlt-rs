@@ -1,10 +1,9 @@
-
 use anyhow::{Context, Result};
-use tokio::net::TcpStream;
-use tokio::time;
 use btclib::network::Message;
 use btclib::types::Blockchain;
 use btclib::util::Saveable;
+use tokio::net::TcpStream;
+use tokio::time;
 
 pub async fn load_blockchain(blockchain_file: &str) -> Result<()> {
     println!("blockchain file exists, loading...");
@@ -40,7 +39,7 @@ pub async fn populate_connections(nodes: &[String]) -> Result<()> {
                     let new_stream = TcpStream::connect(&child_node).await?;
                     crate::NODES.insert(child_node, new_stream);
                 }
-            },
+            }
             _ => {
                 println!("unexpected message from {}", node);
             }
@@ -60,9 +59,7 @@ pub async fn find_longest_chain_node() -> Result<(String, u32)> {
         .collect::<Vec<_>>();
     for node in all_nodes {
         println!("asking {} for blockchain length", node);
-        let mut stream = crate::NODES
-            .get_mut(&node)
-            .context("no node")?;
+        let mut stream = crate::NODES.get_mut(&node).context("no node")?;
         let message = Message::AskDifference(0);
         message.send_async(&mut *stream).await.unwrap();
         println!("sent AskDifference to {}", node);
@@ -76,7 +73,7 @@ pub async fn find_longest_chain_node() -> Result<(String, u32)> {
                     longest_count = count;
                     longest_name = node;
                 }
-            },
+            }
             e => {
                 println!("unexpected message from {}: {:?}", node, e);
             }
@@ -95,7 +92,7 @@ pub async fn download_blockchain(node: &str, count: u32) -> Result<()> {
             Message::NewBlock(block) => {
                 let mut blockchain = crate::BLOCKCHAIN.write().await;
                 blockchain.add_block(block)?;
-            },
+            }
             _ => {
                 println!("unexpected message from {}", node);
             }
@@ -108,9 +105,7 @@ pub async fn cleanup() {
     let mut interval = time::interval(time::Duration::from_secs(30));
     loop {
         interval.tick().await;
-        println!(
-            "cleaning the mempool from old transactions"
-        );
+        println!("cleaning the mempool from old transactions");
         let mut blockchain = crate::BLOCKCHAIN.write().await;
         blockchain.cleanup_mempool();
     }
