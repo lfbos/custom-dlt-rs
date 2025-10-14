@@ -209,12 +209,7 @@ impl BlockchainConfig {
         U256::from_str_radix(hex_str, 16)
             .unwrap_or_else(|_| {
                 eprintln!("Warning: Invalid MIN_TARGET_HEX, using default");
-                U256([
-                    0xFFFF_FFFF_FFFF_FFFF,
-                    0xFFFF_FFFF_FFFF_FFFF,
-                    0xFFFF_FFFF_FFFF_FFFF,
-                    0x0000_FFFF_FFFF_FFFF,
-                ])
+                crate::MIN_TARGET
             })
     }
 }
