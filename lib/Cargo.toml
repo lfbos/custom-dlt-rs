@@ -13,6 +13,7 @@ categories = ["cryptography", "network-programming"]
 bigdecimal = "0.4.8"
 chrono = { version = "0.4.42", features = ["serde"] }
 ciborium = "0.2.2"
+dotenvy = "0.15.7"
 ecdsa = { version = "0.16.9", features = ["signing", "verifying", "serde", "pem"] }
 hex = "0.4.3"
 k256 = { version = "0.13.4", features = ["serde", "pem"] }

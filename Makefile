@@ -17,6 +17,12 @@ help:
 	@echo "  make docker-clean    - Remove all data and containers"
 	@echo "  make docker-restart  - Restart the entire network"
 	@echo ""
+	@echo "⚙️  Configuration Commands:"
+	@echo "  make config-mainnet  - Switch to mainnet configuration"
+	@echo "  make config-testnet  - Switch to testnet configuration"
+	@echo "  make config-devnet   - Switch to devnet configuration"
+	@echo "  make config-show     - Show current configuration"
+	@echo ""
 	@echo "🔧 Development Commands:"
 	@echo "  make build           - Build all binaries (local)"
 	@echo "  make build-release   - Build optimized binaries"
@@ -65,6 +71,38 @@ stop: docker-stop
 logs: docker-logs
 status: docker-status
 clean: docker-clean
+
+# =============================================================================
+# Configuration Commands
+# =============================================================================
+
+config-mainnet:
+	@cp .env.example .env
+	@echo "✅ Switched to mainnet configuration"
+	@echo "   IDEAL_BLOCK_TIME=10s, Standard difficulty"
+
+config-testnet:
+	@cp .env.testnet.example .env
+	@echo "✅ Switched to testnet configuration"
+	@echo "   IDEAL_BLOCK_TIME=5s, Easier difficulty"
+
+config-devnet:
+	@cp .env.devnet.example .env
+	@echo "✅ Switched to devnet configuration"
+	@echo "   IDEAL_BLOCK_TIME=2s, Instant mining!"
+
+config-show:
+	@echo "Current configuration (.env):"
+	@if [ -f .env ]; then \
+		echo ""; \
+		grep -v "^#" .env | grep -v "^$$" || true; \
+	else \
+		echo "❌ No .env file found. Using defaults."; \
+		echo "   Run: make config-mainnet (or testnet/devnet)"; \
+	fi
+
+config-switch:
+	@./switch-network.sh
 
 # =============================================================================
 # Local Development Commands

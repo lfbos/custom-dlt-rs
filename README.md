@@ -57,8 +57,10 @@ Each component has its own detailed README:
 
 Additional documentation:
 - [**QUICKSTART.md**](./QUICKSTART.md) - Step-by-step tutorial
+- [**CONFIGURATION.md**](./CONFIGURATION.md) - Environment variables and .env files
 - [**DEPENDENCIES.md**](./DEPENDENCIES.md) - Explanation of all libraries used
 - [**CREDITS.md**](./CREDITS.md) - Attribution and acknowledgments
+- [**docker/README.md**](./docker/README.md) - Docker deployment guide
 - [**LICENSE**](./LICENSE) - MIT License
 
 ## 🚀 Quick Start
@@ -162,6 +164,64 @@ make stop     # Same as ./docker/stop.sh
 make logs     # Same as ./docker/logs.sh
 make help     # See all available commands
 ```
+
+## ⚙️ Configuration
+
+The blockchain is fully configurable via environment variables!
+
+### Quick Configuration
+
+```bash
+# 1. Copy example config
+cp .env.example .env
+
+# 2. Edit as needed
+nano .env
+
+# 3. Run (automatically loads .env)
+cargo run --bin node
+```
+
+### Network Profiles
+
+Pre-configured profiles for different use cases:
+
+```bash
+# Mainnet (default - standard speed)
+cp .env.example .env
+
+# Testnet (2x faster, easier mining)
+cp .env.testnet.example .env
+
+# Devnet (5x faster, instant mining)
+cp .env.devnet.example .env
+```
+
+### Environment Variable Examples
+
+```bash
+# Change block time
+IDEAL_BLOCK_TIME=5 cargo run --bin node
+
+# Easier difficulty
+MIN_TARGET_HEX=0x00FFFFFFFFFFFFFF... cargo run --bin node
+
+# Custom port
+NODE_PORT=9001 cargo run --bin node
+
+# Debug logging
+RUST_LOG=debug cargo run --bin miner
+```
+
+### What's Configurable?
+
+- 🎯 **Network parameters**: Block time, difficulty, rewards
+- 🌐 **Node settings**: Port, peers, save intervals
+- ⛏️ **Mining config**: Batch size, update frequency
+- 💰 **Wallet config**: Update intervals, node address
+- 📊 **Logging**: Log level, backtraces
+
+**See [CONFIGURATION.md](./CONFIGURATION.md) for complete reference**
 
 ## 📖 Learning Path
 

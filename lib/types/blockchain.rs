@@ -2,7 +2,7 @@ use super::{Block, Transaction, TransactionOutput};
 use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
 use crate::util::{MerkleRoot, Saveable};
-use crate::U256;
+use crate::{config, U256};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ impl Blockchain {
         Blockchain {
             utxos: HashMap::new(),
             blocks: vec![],
-            target: crate::MIN_TARGET,
+            target: config::min_target(),
             mempool: vec![],
         }
     }
@@ -311,15 +311,15 @@ impl Blockchain {
         }
 
         // Only adjust every DIFFICULTY_UPDATE_INTERVAL blocks (e.g., every 50 blocks)
-        if self.blocks.len() % crate::DIFFICULTY_UPDATE_INTERVAL as usize != 0 {
+        let difficulty_interval = config::difficulty_update_interval() as usize;
+        if self.blocks.len() % difficulty_interval != 0 {
             return;
         }
 
         // STEP 1: Measure actual time taken for last adjustment interval
         // ==============================================================
         // Get the timestamp of the block that started this interval
-        let start_time = self.blocks
-            [self.blocks.len() - crate::DIFFICULTY_UPDATE_INTERVAL as usize]
+        let start_time = self.blocks[self.blocks.len() - difficulty_interval]
             .header
             .timestamp;
         
@@ -335,7 +335,7 @@ impl Blockchain {
         // We want IDEAL_BLOCK_TIME (10 seconds) per block
         // Over DIFFICULTY_UPDATE_INTERVAL blocks, that's:
         // 10 seconds/block × 50 blocks = 500 seconds total
-        let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
+        let target_seconds = config::ideal_block_time() * config::difficulty_update_interval();
 
         // STEP 3: Calculate new target with adjustment ratio
         // ===================================================
@@ -374,7 +374,7 @@ impl Blockchain {
         // STEP 6: Apply absolute maximum (difficulty floor)
         // ==================================================
         // Never allow target to exceed MIN_TARGET (the easiest allowed difficulty)
-        self.target = new_target.min(crate::MIN_TARGET);
+        self.target = new_target.min(config::min_target());
     }
 
     // Cleanup mempool - remove transactions older than
@@ -384,7 +384,7 @@ impl Blockchain {
         let mut utxo_hashes_to_unmark: Vec<Hash> = vec![];
         self.mempool.retain(|(timestamp, transaction)| {
             if now - *timestamp
-                > chrono::Duration::seconds(crate::MAX_MEMPOOL_TRANSACTION_AGE as i64)
+                > chrono::Duration::seconds(config::max_mempool_transaction_age() as i64)
             {
                 // push all utxos to unmark to the vector
                 // so we can unmark them later
@@ -408,8 +408,8 @@ impl Blockchain {
     }
     pub fn calculate_block_reward(&self) -> u64 {
         let block_height = self.block_height();
-        let halvings = block_height / crate::HALVING_INTERVAL;
-        (crate::INITIAL_REWARD * 10u64.pow(8)) >> halvings
+        let halvings = block_height / config::halving_interval();
+        (config::initial_reward() * 10u64.pow(8)) >> halvings
     }
 }
 
