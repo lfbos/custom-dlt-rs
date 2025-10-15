@@ -1,17 +1,20 @@
 /// Configuration module for blockchain parameters
 ///
 /// This module provides a centralized configuration system that supports:
-/// - Hardcoded defaults (for educational simplicity)
+/// - JSON configuration files (primary method)
 /// - Environment variable overrides (for flexibility)
 /// - Multiple network profiles (mainnet, testnet, devnet)
+/// - Hardcoded defaults (fallback)
 ///
 /// Configuration priority (highest to lowest):
-/// 1. Environment variables
-/// 2. .env file
-/// 3. Hardcoded defaults
+/// 1. Environment variables (highest)
+/// 2. JSON config file (config.json)
+/// 3. .env file (legacy support)
+/// 4. Hardcoded defaults (lowest)
 
 use crate::U256;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::OnceLock;
 
 /// Global configuration instance
@@ -181,21 +184,136 @@ impl Default for BlockchainConfig {
 impl BlockchainConfig {
     /// Load configuration with the following priority:
     /// 1. Environment variables (highest priority)
-    /// 2. .env file
-    /// 3. Hardcoded defaults (lowest priority)
+    /// 2. JSON config file (config.json)
+    /// 3. .env file (legacy support)
+    /// 4. Hardcoded defaults (lowest priority)
     pub fn load() -> Self {
-        // Try to load .env file (fails silently if not found)
+        Self::load_from_file("config.json")
+    }
+    
+    /// Load configuration from a specific file path
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Self {
+        let path = path.as_ref();
+        
+        // Try to load .env file first (for backward compatibility)
         dotenvy::dotenv().ok();
         
-        let mut config = BlockchainConfig::default();
+        // Try to load JSON config file
+        let mut config = if path.exists() {
+            match std::fs::read_to_string(path) {
+                Ok(contents) => match serde_json::from_str::<BlockchainConfig>(&contents) {
+                    Ok(cfg) => {
+                        eprintln!("✓ Loaded configuration from {}", path.display());
+                        cfg
+                    }
+                    Err(e) => {
+                        eprintln!("⚠ Warning: Failed to parse {}: {}", path.display(), e);
+                        eprintln!("  Using defaults instead");
+                        BlockchainConfig::default()
+                    }
+                },
+                Err(_) => {
+                    eprintln!("⚠ Warning: Could not read {}, using defaults", path.display());
+                    BlockchainConfig::default()
+                }
+            }
+        } else {
+            eprintln!("ℹ No config file found at {}, using defaults", path.display());
+            BlockchainConfig::default()
+        };
         
-        // Override with environment variables
-        config.network = NetworkConfig::from_env();
-        config.node = NodeConfig::from_env();
-        config.mining = MiningConfig::from_env();
-        config.wallet = WalletConfig::from_env();
+        // Apply environment variable overrides on top of JSON config
+        config.apply_env_overrides();
         
         config
+    }
+    
+    /// Apply environment variable overrides to existing configuration
+    fn apply_env_overrides(&mut self) {
+        // Network overrides
+        if let Some(v) = env_var("NETWORK_ID") {
+            self.network.network_id = v;
+        }
+        if let Some(v) = parse_env("INITIAL_REWARD") {
+            self.network.initial_reward = v;
+        }
+        if let Some(v) = parse_env("HALVING_INTERVAL") {
+            self.network.halving_interval = v;
+        }
+        if let Some(v) = parse_env("IDEAL_BLOCK_TIME") {
+            self.network.ideal_block_time = v;
+        }
+        if let Some(v) = parse_env("DIFFICULTY_UPDATE_INTERVAL") {
+            self.network.difficulty_update_interval = v;
+        }
+        if let Some(v) = parse_env("MAX_MEMPOOL_TX_AGE") {
+            self.network.max_mempool_transaction_age = v;
+        }
+        if let Some(v) = parse_env("BLOCK_TX_CAP") {
+            self.network.block_transaction_cap = v;
+        }
+        if let Some(v) = env_var("MIN_TARGET_HEX") {
+            self.network.min_target_hex = v;
+        }
+        
+        // Node overrides
+        if let Some(v) = parse_env("NODE_PORT") {
+            self.node.port = v;
+        }
+        if let Some(v) = env_var("BLOCKCHAIN_FILE") {
+            self.node.blockchain_file = v;
+        }
+        if let Some(v) = env_var("INITIAL_PEERS") {
+            self.node.initial_peers = if v.is_empty() {
+                vec![]
+            } else {
+                v.split(',').map(|s| s.trim().to_string()).collect()
+            };
+        }
+        if let Some(v) = parse_env("MEMPOOL_CLEANUP_INTERVAL") {
+            self.node.mempool_cleanup_interval_secs = v;
+        }
+        if let Some(v) = parse_env("BLOCKCHAIN_SAVE_INTERVAL") {
+            self.node.blockchain_save_interval_secs = v;
+        }
+        if let Some(v) = parse_env("MAX_PEERS") {
+            self.node.max_peers = v;
+        }
+        
+        // Mining overrides
+        if let Some(v) = parse_env("MINING_BATCH_SIZE") {
+            self.mining.mining_batch_size = v;
+        }
+        if let Some(v) = parse_env("TEMPLATE_FETCH_INTERVAL") {
+            self.mining.template_fetch_interval_secs = v;
+        }
+        if let Some(v) = env_var("MINER_NODE_ADDRESS") {
+            self.mining.node_address = v;
+        }
+        if let Some(v) = env_var("MINER_PUBLIC_KEY") {
+            self.mining.public_key_file = v;
+        }
+        
+        // Wallet overrides
+        if let Some(v) = parse_env("UTXO_UPDATE_INTERVAL") {
+            self.wallet.utxo_update_interval_secs = v;
+        }
+        if let Some(v) = parse_env("BALANCE_UPDATE_INTERVAL_MS") {
+            self.wallet.balance_display_update_interval_ms = v;
+        }
+        if let Some(v) = env_var("WALLET_NODE_ADDRESS") {
+            self.wallet.node_address = v;
+        }
+        if let Some(v) = env_var("WALLET_CONFIG_FILE") {
+            self.wallet.config_file = v;
+        }
+    }
+    
+    /// Save configuration to a JSON file
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(path.as_ref(), json)?;
+        Ok(())
     }
     
     /// Get or initialize the global configuration
@@ -253,64 +371,6 @@ pub fn max_mempool_transaction_age() -> u64 {
 /// Get block transaction cap (configurable via BLOCK_TX_CAP env var)
 pub fn block_transaction_cap() -> usize {
     BlockchainConfig::global().network.block_transaction_cap
-}
-
-impl NetworkConfig {
-    fn from_env() -> Self {
-        Self {
-            network_id: env_var("NETWORK_ID").unwrap_or_else(|| "mainnet".to_string()),
-            initial_reward: parse_env("INITIAL_REWARD").unwrap_or(50),
-            halving_interval: parse_env("HALVING_INTERVAL").unwrap_or(210),
-            ideal_block_time: parse_env("IDEAL_BLOCK_TIME").unwrap_or(10),
-            difficulty_update_interval: parse_env("DIFFICULTY_UPDATE_INTERVAL").unwrap_or(50),
-            max_mempool_transaction_age: parse_env("MAX_MEMPOOL_TX_AGE").unwrap_or(600),
-            block_transaction_cap: parse_env("BLOCK_TX_CAP").unwrap_or(20),
-            min_target_hex: env_var("MIN_TARGET_HEX")
-                .unwrap_or_else(|| "0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF".to_string()),
-        }
-    }
-}
-
-impl NodeConfig {
-    fn from_env() -> Self {
-        let initial_peers_str = env_var("INITIAL_PEERS").unwrap_or_default();
-        let initial_peers = if initial_peers_str.is_empty() {
-            vec![]
-        } else {
-            initial_peers_str.split(',').map(|s| s.trim().to_string()).collect()
-        };
-        
-        Self {
-            port: parse_env("NODE_PORT").unwrap_or(9000),
-            blockchain_file: env_var("BLOCKCHAIN_FILE").unwrap_or_else(|| "./blockchain.cbor".to_string()),
-            initial_peers,
-            mempool_cleanup_interval_secs: parse_env("MEMPOOL_CLEANUP_INTERVAL").unwrap_or(30),
-            blockchain_save_interval_secs: parse_env("BLOCKCHAIN_SAVE_INTERVAL").unwrap_or(15),
-            max_peers: parse_env("MAX_PEERS").unwrap_or(50),
-        }
-    }
-}
-
-impl MiningConfig {
-    fn from_env() -> Self {
-        Self {
-            mining_batch_size: parse_env("MINING_BATCH_SIZE").unwrap_or(2_000_000),
-            template_fetch_interval_secs: parse_env("TEMPLATE_FETCH_INTERVAL").unwrap_or(5),
-            node_address: env_var("MINER_NODE_ADDRESS").unwrap_or_else(|| "127.0.0.1:9000".to_string()),
-            public_key_file: env_var("MINER_PUBLIC_KEY").unwrap_or_else(|| "miner.pub.pem".to_string()),
-        }
-    }
-}
-
-impl WalletConfig {
-    fn from_env() -> Self {
-        Self {
-            utxo_update_interval_secs: parse_env("UTXO_UPDATE_INTERVAL").unwrap_or(20),
-            balance_display_update_interval_ms: parse_env("BALANCE_UPDATE_INTERVAL_MS").unwrap_or(500),
-            node_address: env_var("WALLET_NODE_ADDRESS").unwrap_or_else(|| "127.0.0.1:9000".to_string()),
-            config_file: env_var("WALLET_CONFIG_FILE").unwrap_or_else(|| "wallet_config.toml".to_string()),
-        }
-    }
 }
 
 /// Helper function to get environment variable

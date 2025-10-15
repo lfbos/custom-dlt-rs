@@ -121,12 +121,18 @@ docker/backups/
 *_wallet.toml
 wallet_config.toml
 
-# Environment files (contain secrets)
+# Legacy environment files (no longer used, but keep ignored for safety)
 .env
 .env.local
-.env.*.local
+.env.*
 
-# But allow example files
-!.env.example
-!.env.testnet.example
-!.env.devnet.example
+# Active configuration files (may contain secrets/local paths)
+config.json
+config.local.json
+config.production.json
+*.local.json
+
+# Template configuration files are committed to the repository:
+# - config.default.json (mainnet template)
+# - config.testnet.json (testnet template)
+# - config.devnet.json (devnet template)

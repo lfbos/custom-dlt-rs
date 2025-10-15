@@ -1,12 +1,14 @@
 # Configuration Guide
 
-Complete guide to configuring the blockchain using environment variables and .env files.
+Complete guide to configuring the blockchain using JSON config files and environment variables.
 
 ## 📚 Table of Contents
 
 - [Overview](#overview)
+- [Quick Start](#quick-start)
 - [Configuration Priority](#configuration-priority)
 - [Network Profiles](#network-profiles)
+- [Configuration File Reference](#configuration-file-reference)
 - [Environment Variables Reference](#environment-variables-reference)
 - [Examples](#examples)
 - [Docker Configuration](#docker-configuration)
@@ -15,55 +17,140 @@ Complete guide to configuring the blockchain using environment variables and .en
 ## Overview
 
 This blockchain supports flexible configuration through:
-- 🔧 **Environment variables** - Quick overrides
-- 📄 **.env files** - Persistent configuration
-- ⚙️ **Command-line arguments** - Runtime overrides
-- 🏭 **Hardcoded defaults** - Educational baseline
+- 📋 **JSON config files** - Primary configuration method (discoverable, validated)
+- 🔧 **Environment variables** - Override specific values
+- 📄 **.env files** - Legacy support
+- 🏭 **Hardcoded defaults** - Fallback when no config provided
 
-### Why Environment Variables?
+### Why JSON Config Files?
 
 **Benefits:**
-- ✅ No recompilation needed
-- ✅ Easy testing with different parameters
-- ✅ Docker-friendly
-- ✅ Multiple network support (mainnet/testnet/devnet)
-- ✅ Secure (secrets not in code)
+- ✅ **Discoverable** - All settings visible in one file
+- ✅ **Validated** - Parse errors detected at startup (no silent failures from typos)
+- ✅ **Self-documenting** - See all available options with their values
+- ✅ **Version controllable** - Ship templates with your project
+- ✅ **Type-safe** - Invalid types caught immediately
+- ✅ **Still flexible** - Environment variables can override any setting
+
+### Migration from .env
+
+The system still supports `.env` files for backward compatibility, but JSON configs are recommended. See [Migration Guide](#migration-from-environment-variables) below.
+
+## Quick Start
+
+### Generate Default Configuration
+
+```bash
+# Generate config.default.json template
+cargo run --bin config_gen
+
+# Copy it to use as your config
+cp config.default.json config.json
+
+# Edit config.json to customize settings
+nano config.json
+
+# Run your application (automatically loads config.json)
+cargo run --bin node
+```
+
+### Use Pre-configured Network Profile
+
+```bash
+# Testnet (2x faster blocks, easier mining)
+cp config.testnet.json config.json
+
+# Devnet (5x faster blocks, instant mining)
+cp config.devnet.json config.json
+
+# Start node
+cargo run --bin node
+```
 
 ## Configuration Priority
 
 Settings are applied in this order (highest to lowest):
 
 ```
-1. Command-line arguments  (highest priority)
-   └─ Example: --port 9001
+1. Environment variables  (highest priority)
+   └─ Example: NODE_PORT=9001 cargo run --bin node
    
-2. Environment variables
-   └─ Example: NODE_PORT=9001
+2. JSON config file (config.json)
+   └─ Example: {"node": {"port": 9000}}
    
-3. .env file in current directory
+3. .env file in current directory (legacy support)
    └─ Example: NODE_PORT=9001 in .env
    
 4. Hardcoded defaults  (lowest priority)
-   └─ Example: DEFAULT_PORT = 9000
+   └─ Fallback if no config file exists
 ```
 
 ### Example
 
 ```bash
-# Hardcoded default
-NODE_PORT = 9000
-
-# Override with .env file
-# .env contains: NODE_PORT=9001
-→ Uses 9001
+# config.json contains: "port": 9000
+→ Uses 9000
 
 # Override with environment variable
-NODE_PORT=9002 cargo run --bin node
-→ Uses 9002
+NODE_PORT=9001 cargo run --bin node
+→ Uses 9001 (env var wins!)
 
-# Override with CLI argument
-NODE_PORT=9002 cargo run --bin node -- --port 9003
-→ Uses 9003 (CLI wins!)
+# No config.json exists
+→ Uses 9000 (built-in default)
+```
+
+## Configuration File Reference
+
+### JSON Structure
+
+The configuration file has four main sections:
+
+```json
+{
+  "network": { /* Consensus rules - must match across all nodes */ },
+  "node": { /* Node-specific settings */ },
+  "mining": { /* Miner configuration */ },
+  "wallet": { /* Wallet UI settings */ }
+}
+```
+
+For detailed field-by-field documentation, see [CONFIG_README.md](./CONFIG_README.md).
+
+### Sample config.json
+
+```json
+{
+  "network": {
+    "network_id": "mainnet",
+    "initial_reward": 50,
+    "halving_interval": 210,
+    "ideal_block_time": 10,
+    "difficulty_update_interval": 50,
+    "max_mempool_transaction_age": 600,
+    "block_transaction_cap": 20,
+    "min_target_hex": "0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+  },
+  "node": {
+    "port": 9000,
+    "blockchain_file": "./blockchain.cbor",
+    "initial_peers": [],
+    "mempool_cleanup_interval_secs": 30,
+    "blockchain_save_interval_secs": 15,
+    "max_peers": 50
+  },
+  "mining": {
+    "mining_batch_size": 2000000,
+    "template_fetch_interval_secs": 5,
+    "node_address": "127.0.0.1:9000",
+    "public_key_file": "miner.pub.pem"
+  },
+  "wallet": {
+    "utxo_update_interval_secs": 20,
+    "balance_display_update_interval_ms": 500,
+    "node_address": "127.0.0.1:9000",
+    "config_file": "wallet_config.toml"
+  }
+}
 ```
 
 ## Network Profiles
@@ -74,9 +161,9 @@ Pre-configured profiles for different use cases:
 **Purpose:** Standard network for regular operation
 
 ```bash
-cp .env.example .env
-# Or
-export NETWORK_ID=mainnet
+# Use default config or generate it
+cargo run --bin config_gen
+cp config.default.json config.json
 ```
 
 **Parameters:**
@@ -84,15 +171,13 @@ export NETWORK_ID=mainnet
 - Halving: Every 210 blocks
 - Difficulty adjustment: Every 50 blocks
 - Block size: 20 transactions
-- Ports: 9000-9002
+- Port: 9000
 
 ### Testnet
 **Purpose:** Faster network for testing without risk
 
 ```bash
-cp .env.testnet.example .env
-# Or
-export NETWORK_ID=testnet
+cp config.testnet.json config.json
 ```
 
 **Parameters:**
@@ -101,15 +186,13 @@ export NETWORK_ID=testnet
 - Difficulty adjustment: Every 20 blocks  
 - Block size: 10 transactions
 - Easier difficulty
-- Ports: 19000-19002
+- Port: 19000
 
 ### Devnet
 **Purpose:** Very fast network for development
 
 ```bash
-cp .env.devnet.example .env
-# Or
-export NETWORK_ID=devnet
+cp config.devnet.json config.json
 ```
 
 **Parameters:**
@@ -118,10 +201,17 @@ export NETWORK_ID=devnet
 - Difficulty adjustment: Every 10 blocks
 - Block size: 5 transactions
 - Instant mining (very easy difficulty)
-- Ports: 29000-29002
-- Verbose logging
+- Port: 29000
 
 ## Environment Variables Reference
+
+**Note:** Environment variables now serve as **overrides** to JSON config files. They are optional and should be used for:
+- Quick testing/debugging
+- CI/CD environments
+- Docker deployments
+- Overriding specific values without editing config files
+
+For primary configuration, use JSON config files (see above).
 
 ### Network Consensus Parameters
 
@@ -180,7 +270,7 @@ These define the blockchain's consensus rules. **Changing these creates an incom
 
 ```bash
 # Copy testnet config
-cp .env.testnet.example .env
+cp config.testnet.json config.json
 
 # Start node
 cargo run --bin node
@@ -193,14 +283,40 @@ cargo run --bin miner
 
 ### Example 2: Custom Development Setup
 
-Create `.env`:
-```bash
-# Super fast for development
-NETWORK_ID=custom-dev
-IDEAL_BLOCK_TIME=1
-MIN_TARGET_HEX=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-MINING_BATCH_SIZE=1000
-RUST_LOG=debug
+Create `config.json`:
+```json
+{
+  "network": {
+    "network_id": "custom-dev",
+    "ideal_block_time": 1,
+    "min_target_hex": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+    "initial_reward": 50,
+    "halving_interval": 50,
+    "difficulty_update_interval": 10,
+    "max_mempool_transaction_age": 120,
+    "block_transaction_cap": 5
+  },
+  "node": {
+    "port": 9000,
+    "blockchain_file": "./blockchain.cbor",
+    "initial_peers": [],
+    "mempool_cleanup_interval_secs": 10,
+    "blockchain_save_interval_secs": 5,
+    "max_peers": 10
+  },
+  "mining": {
+    "mining_batch_size": 1000,
+    "template_fetch_interval_secs": 1,
+    "node_address": "127.0.0.1:9000",
+    "public_key_file": "miner.pub.pem"
+  },
+  "wallet": {
+    "utxo_update_interval_secs": 5,
+    "balance_display_update_interval_ms": 250,
+    "node_address": "127.0.0.1:9000",
+    "config_file": "wallet_config.toml"
+  }
+}
 ```
 
 Run:
@@ -212,72 +328,108 @@ cargo run --bin miner
 
 ### Example 3: Multi-Node Network
 
-**Node 1** (.env):
-```bash
-NODE_PORT=9000
-BLOCKCHAIN_FILE=./node1.cbor
+**Node 1** (node1/config.json):
+```json
+{
+  "network": { /* ... same network config ... */ },
+  "node": {
+    "port": 9000,
+    "blockchain_file": "./node1.cbor",
+    "initial_peers": []
+  }
+}
 ```
 
-**Node 2** (.env):
-```bash
-NODE_PORT=9001
-BLOCKCHAIN_FILE=./node2.cbor
-INITIAL_PEERS=127.0.0.1:9000
+**Node 2** (node2/config.json):
+```json
+{
+  "network": { /* ... same network config ... */ },
+  "node": {
+    "port": 9001,
+    "blockchain_file": "./node2.cbor",
+    "initial_peers": ["127.0.0.1:9000"]
+  }
+}
 ```
 
-**Node 3** (.env):
-```bash
-NODE_PORT=9002
-BLOCKCHAIN_FILE=./node3.cbor
-INITIAL_PEERS=127.0.0.1:9000,127.0.0.1:9001
+**Node 3** (node3/config.json):
+```json
+{
+  "network": { /* ... same network config ... */ },
+  "node": {
+    "port": 9002,
+    "blockchain_file": "./node3.cbor",
+    "initial_peers": ["127.0.0.1:9000", "127.0.0.1:9001"]
+  }
+}
 ```
 
-### Example 4: Override Single Parameter
+### Example 4: Override Single Parameter with Environment Variable
 
 ```bash
-# Use defaults but change block time
+# Use config.json but override block time for quick test
 IDEAL_BLOCK_TIME=5 cargo run --bin node
 
-# Use defaults but enable debug logging
+# Use config.json but enable debug logging
 RUST_LOG=debug cargo run --bin miner
 
 # Combine multiple overrides
-IDEAL_BLOCK_TIME=3 BLOCK_TX_CAP=10 RUST_LOG=trace cargo run --bin node
+IDEAL_BLOCK_TIME=3 BLOCK_TX_CAP=10 cargo run --bin node
 ```
 
 ### Example 5: Production-Like Setup
 
-`.env`:
-```bash
-NETWORK_ID=mainnet
-
-# Conservative settings
-IDEAL_BLOCK_TIME=10
-DIFFICULTY_UPDATE_INTERVAL=50
-MAX_MEMPOOL_TX_AGE=600
-
-# Security
-RUST_LOG=warn  # Less verbose
-MAX_PEERS=100
-
-# Persistence
-BLOCKCHAIN_SAVE_INTERVAL=60  # Save less often (better performance)
+`config.production.json`:
+```json
+{
+  "network": {
+    "network_id": "mainnet",
+    "initial_reward": 50,
+    "halving_interval": 210,
+    "ideal_block_time": 10,
+    "difficulty_update_interval": 50,
+    "max_mempool_transaction_age": 600,
+    "block_transaction_cap": 20,
+    "min_target_hex": "0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+  },
+  "node": {
+    "port": 9000,
+    "blockchain_file": "./blockchain.cbor",
+    "initial_peers": [],
+    "mempool_cleanup_interval_secs": 60,
+    "blockchain_save_interval_secs": 60,
+    "max_peers": 100
+  },
+  "mining": {
+    "mining_batch_size": 2000000,
+    "template_fetch_interval_secs": 5,
+    "node_address": "127.0.0.1:9000",
+    "public_key_file": "miner.pub.pem"
+  },
+  "wallet": {
+    "utxo_update_interval_secs": 20,
+    "balance_display_update_interval_ms": 500,
+    "node_address": "127.0.0.1:9000",
+    "config_file": "wallet_config.toml"
+  }
+}
 ```
 
 ## Docker Configuration
 
-### Using .env with Docker
+### Using JSON Config with Docker
 
-Docker Compose automatically loads `.env` from the project root:
+Docker Compose can use JSON config files mounted as volumes:
 
 ```bash
-# 1. Create .env file
-cp .env.example .env
+# 1. Create config file
+cargo run --bin config_gen
+cp config.default.json config.json
 
 # 2. Edit as needed
-nano .env
+nano config.json
 
-# 3. Start Docker (automatically uses .env)
+# 3. Start Docker (mounts config.json)
 docker-compose up -d
 ```
 
@@ -285,38 +437,37 @@ docker-compose up -d
 
 **Mainnet:**
 ```bash
-cp .env.example .env
+cp config.default.json config.json
 docker-compose up -d
 ```
 
 **Testnet:**
 ```bash
-cp .env.testnet.example .env
+cp config.testnet.json config.json
 docker-compose up -d
 # Faster blocks, easier mining!
 ```
 
 **Devnet:**
 ```bash
-cp .env.devnet.example .env
+cp config.devnet.json config.json
 docker-compose up -d
 # Instant blocks for testing!
 ```
 
-### Override Docker Variables
+### Override with Environment Variables in Docker
+
+You can still use environment variables to override config file values:
 
 ```bash
-# Override at runtime
-NETWORK_ID=testnet RUST_LOG=debug docker-compose up -d
+# Override specific values at runtime
+NODE_PORT=9001 RUST_LOG=debug docker-compose up -d
 
-# Or create custom .env
-cat > .env << EOF
-NETWORK_ID=custom
-IDEAL_BLOCK_TIME=7
-RUST_LOG=debug
-EOF
-
-docker-compose up -d
+# Or set in docker-compose.yml:
+environment:
+  - NETWORK_ID=testnet
+  - IDEAL_BLOCK_TIME=7
+  - RUST_LOG=debug
 ```
 
 ### Docker-Specific Variables
@@ -332,69 +483,79 @@ NODE3_PORT=9002  # Host port for node3
 
 ## Best Practices
 
-### 1. Use .env for Persistent Settings
+### 1. Use JSON Config Files for Persistent Settings
 
 ```bash
-# ✅ Good: Settings in .env
-cp .env.testnet.example .env
+# ✅ Good: Settings in config.json
+cp config.testnet.json config.json
 cargo run --bin node
 
-# ❌ Bad: Typing env vars every time
-IDEAL_BLOCK_TIME=5 BLOCK_TX_CAP=10 cargo run --bin node
+# ⚠️ Acceptable for quick tests: Env vars
+IDEAL_BLOCK_TIME=5 cargo run --bin node
+
+# ❌ Bad: Many env vars without config file
+IDEAL_BLOCK_TIME=5 BLOCK_TX_CAP=10 NODE_PORT=9001 ... cargo run --bin node
 ```
 
-### 2. Different .env for Different Networks
+### 2. Different Configs for Different Networks
 
 ```bash
 project/
-├── .env.mainnet    # Production settings
-├── .env.testnet    # Testing settings
-├── .env.devnet     # Development settings
-└── .env -> .env.testnet  # Symlink to active config
+├── config.default.json    # Mainnet template (version controlled)
+├── config.testnet.json    # Testnet template (version controlled)
+├── config.devnet.json     # Devnet template (version controlled)
+├── config.json           # Active config (gitignored)
+├── config.production.json # Production settings (gitignored)
+└── config.local.json     # Local development (gitignored)
 ```
 
 Switch networks:
 ```bash
-ln -sf .env.testnet .env  # Switch to testnet
+ln -sf config.testnet.json config.json  # Switch to testnet
 cargo run --bin node
 
-ln -sf .env.mainnet .env  # Switch to mainnet
+ln -sf config.default.json config.json  # Switch to mainnet
 cargo run --bin node
 ```
 
-### 3. Never Commit .env Files
+### 3. Never Commit Active Config Files
 
 ```bash
-# .gitignore already includes:
-.env
-.env.local
-.env.*.local
+# .gitignore should include:
+config.json
+config.local.json
+config.production.json
+*.local.json
 
-# ✅ Always use .example files in repo
-.env.example
-.env.testnet.example
-.env.devnet.example
+# ✅ Always commit templates
+config.default.json
+config.testnet.json
+config.devnet.json
 ```
 
-### 4. Document Custom Variables
+### 4. Validate JSON Syntax
 
-If you add new variables:
+Always validate your JSON before deploying:
 
 ```bash
-# Add to .env.example with comment
-# My new feature setting
-MY_NEW_FEATURE=true
+# Validate JSON syntax
+jq . config.json
+
+# Or let the application validate at startup
+cargo run --bin node
+# Look for: "✓ Loaded configuration from config.json"
 ```
 
-### 5. Validate Configuration
+### 5. Use Environment Variables for Overrides Only
 
 ```bash
-# Check what config is loaded
-RUST_LOG=debug cargo run --bin node
-# Look for: "Network: testnet" in output
+# ✅ Good: Override specific values for testing
+IDEAL_BLOCK_TIME=3 cargo run --bin node
 
-# Or add to code:
-println!("Loaded config: {:?}", BlockchainConfig::global());
+# ✅ Good: CI/CD overrides
+NODE_PORT=9001 cargo run --bin node
+
+# ❌ Bad: All config via env vars (use JSON instead)
 ```
 
 ## Troubleshooting
@@ -402,71 +563,92 @@ println!("Loaded config: {:?}", BlockchainConfig::global());
 ### Config Not Loading
 
 ```bash
-Problem: Changes to .env don't apply
+Problem: Changes to config.json don't apply
 
 Solutions:
-1. Check .env is in current directory
+1. Check config.json is in current directory
    pwd
-   ls -la .env
+   ls -la config.json
 
 2. Restart the application
-   # .env is loaded on startup, not dynamically
+   # Config is loaded on startup, not dynamically
 
-3. Check for typos
-   # Variable names are case-sensitive
-   NODE_PORT=9000  ✅
-   node_port=9000  ❌
+3. Validate JSON syntax
+   jq . config.json
+   # Look for parse errors
+
+4. Check application output
+   cargo run --bin node
+   # Should see: "✓ Loaded configuration from config.json"
+```
+
+### Invalid JSON
+
+```bash
+Error: Failed to parse config.json
+
+Solutions:
+1. Validate JSON syntax
+   jq . config.json
+   
+2. Common JSON errors:
+   - Trailing commas (not allowed)
+   - Missing quotes around strings
+   - Wrong types (string vs number)
+   - Unescaped special characters
+
+3. Use a template as reference
+   cargo run --bin config_gen
+   diff config.json config.default.json
 ```
 
 ### Invalid Values
 
 ```bash
-Error: Failed to parse config
+Error: Type mismatch or invalid value
 
 Solutions:
-1. Check types match
-   NODE_PORT=9000      ✅ (number)
-   NODE_PORT="9000"    ✅ (quotes ok)
-   NODE_PORT=abc       ❌ (not a number!)
+1. Check types match the specification
+   "port": 9000      ✅ (number)
+   "port": "9000"    ❌ (should be number, not string)
 
 2. Check hex format
-   MIN_TARGET_HEX=0xFF...  ✅
-   MIN_TARGET_HEX=FF...    ❌ (needs 0x prefix)
+   "min_target_hex": "0xFF..."  ✅
+   "min_target_hex": "FF..."    ❌ (needs 0x prefix)
 
-3. Use .env.example as template
-   cp .env.example .env
+3. Regenerate from defaults
+   cargo run --bin config_gen
 ```
 
-### Docker Not Using .env
+### Docker Not Using Config
 
 ```bash
-Problem: docker-compose ignores .env
+Problem: docker-compose ignores config.json
 
 Solutions:
-1. Ensure .env is in same dir as docker-compose.yml
-   ls -la .env docker-compose.yml
+1. Ensure config.json is mounted as volume in docker-compose.yml
+   volumes:
+     - ./config.json:/app/config.json
 
 2. Rebuild containers
    docker-compose down
    docker-compose up --build -d
 
-3. Check .env format (no spaces around =)
-   NODE_PORT=9000  ✅
-   NODE_PORT = 9000  ❌
+3. Check config.json exists in host directory
+   ls -la config.json
 ```
 
 ## Advanced
 
-### Multiple .env Files
+### Load Config from Custom Path
 
-```bash
-# Load multiple .env files
-set -a  # Auto-export variables
-source .env.base
-source .env.custom
-set +a
+You can load configuration from a custom path programmatically:
 
-cargo run --bin node
+```rust
+use btclib::config::BlockchainConfig;
+
+// Load from custom path
+let config = BlockchainConfig::load_from_file("path/to/my_config.json");
 ```
 
 ### Conditional Configuration
@@ -474,28 +656,35 @@ cargo run --bin node
 ```bash
 # Different settings based on environment
 if [ "$ENV" == "production" ]; then
-    cp .env.mainnet .env
+    cp config.production.json config.json
+elif [ "$ENV" == "staging" ]; then
+    cp config.testnet.json config.json
 else
-    cp .env.devnet .env
+    cp config.devnet.json config.json
 fi
 
-docker-compose up -d
+cargo run --bin node
 ```
 
-### Generate .env Programmatically
+### Generate Config Programmatically
+
+```rust
+use btclib::config::BlockchainConfig;
+
+// Generate default config
+let config = BlockchainConfig::default();
+
+// Save to file
+config.save_to_file("generated_config.json")?;
+```
+
+Or from command line:
 
 ```bash
 #!/bin/bash
-# generate-env.sh
+# generate-config.sh
 
-cat > .env << EOF
-NETWORK_ID=${NETWORK:-testnet}
-IDEAL_BLOCK_TIME=${BLOCK_TIME:-5}
-NODE_PORT=${PORT:-9000}
-RUST_LOG=${LOG_LEVEL:-info}
-EOF
-
-echo "Generated .env for $NETWORK network"
+cargo run --bin config_gen config.$NETWORK.json
 ```
 
 ## Configuration in CI/CD
@@ -504,27 +693,27 @@ echo "Generated .env for $NETWORK network"
 
 ```yaml
 # .github/workflows/test.yml
-env:
-  NETWORK_ID: testnet
-  IDEAL_BLOCK_TIME: 2
-  RUST_LOG: debug
-
 steps:
+  - name: Generate test config
+    run: |
+      cargo run --bin config_gen
+      cp config.devnet.json config.json
+  
   - name: Run tests
     run: cargo test --workspace
+    env:
+      RUST_LOG: debug
+      IDEAL_BLOCK_TIME: 1  # Override for faster tests
 ```
 
 ### Docker Compose in CI
 
 ```yaml
 steps:
-  - name: Create .env
+  - name: Create test config
     run: |
-      cat > .env << EOF
-      NETWORK_ID=testnet
-      IDEAL_BLOCK_TIME=2
-      MIN_TARGET_HEX=0xFFFF...
-      EOF
+      cargo run --bin config_gen
+      cp config.testnet.json config.json
   
   - name: Start network
     run: docker-compose up -d
@@ -566,25 +755,100 @@ secrets:
     file: ./secrets/blockchain.key
 ```
 
+## Migration from Environment Variables
+
+If you're currently using `.env` files and environment variables, here's how to migrate to JSON configs:
+
+### Step 1: Generate Base Config
+
+```bash
+# Generate config.json from current defaults
+cargo run --bin config_gen
+```
+
+### Step 2: Port Your Settings
+
+**Old `.env`:**
+```bash
+NETWORK_ID=testnet
+IDEAL_BLOCK_TIME=7
+NODE_PORT=9001
+BLOCKCHAIN_FILE=./my_chain.cbor
+INITIAL_PEERS=127.0.0.1:9000
+```
+
+**New `config.json`:**
+```json
+{
+  "network": {
+    "network_id": "testnet",
+    "ideal_block_time": 7,
+    ...
+  },
+  "node": {
+    "port": 9001,
+    "blockchain_file": "./my_chain.cbor",
+    "initial_peers": ["127.0.0.1:9000"],
+    ...
+  }
+}
+```
+
+### Step 3: Verify It Works
+
+```bash
+# Test the new config
+cargo run --bin node
+
+# Should see: "✓ Loaded configuration from config.json"
+```
+
+### Step 4: Clean Up (Optional)
+
+```bash
+# Keep .env for backward compatibility or remove it
+rm .env
+
+# Environment variables still work as overrides!
+NODE_PORT=9002 cargo run --bin node
+```
+
+### Benefits After Migration
+
+✅ **Discoverability** - See all settings in one place
+✅ **Validation** - Typos caught at startup
+✅ **Type safety** - Wrong types = immediate error
+✅ **Still flexible** - Env vars still override when needed
+
 ## Reference
 
-### Complete .env Example
+### Configuration Files
 
-See [.env.example](./.env.example) for all available variables with documentation.
+- [config.default.json](./config.default.json) - Mainnet configuration template
+- [config.testnet.json](./config.testnet.json) - Testnet configuration
+- [config.devnet.json](./config.devnet.json) - Development configuration
+- [CONFIG_README.md](./CONFIG_README.md) - Detailed field-by-field documentation
 
-### Network-Specific Examples
+### Tools
 
-- [.env.testnet.example](./.env.testnet.example) - Testnet configuration
-- [.env.devnet.example](./.env.devnet.example) - Development configuration
+- `cargo run --bin config_gen` - Generate default config files
+- `jq . config.json` - Validate JSON syntax
 
-### Component-Specific
+### Legacy Support
 
-- [node/.env.example](./node/.env.example) - Node-only variables
-- [miner/.env.example](./miner/.env.example) - Miner-only variables
-- [wallet/.env.example](./wallet/.env.example) - Wallet-only variables
-- [docker/.env.example](./docker/.env.example) - Docker deployment variables
+The system still supports `.env` files for backward compatibility:
+- Environment variables work as overrides
+- `.env` files are still loaded (lower priority than JSON)
+- All previous env var names still work
 
 ---
 
-**Ready to configure?** Copy `.env.example` to `.env` and start customizing!
+**Ready to configure?** 
+
+```bash
+cargo run --bin config_gen
+cp config.default.json config.json
+# Edit config.json to customize
+cargo run --bin node
+```
 
