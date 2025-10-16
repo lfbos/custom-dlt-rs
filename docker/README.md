@@ -146,7 +146,7 @@ cargo run --bin good-wallet -- -c alice_wallet.toml -n localhost:9000
 # Option 2: Manual config creation
 cat > alice_wallet.toml << EOF
 my_keys = [
-    { public_key_path = "alice.pub.pem", private_key_path = "alice.priv.cbor" }
+    { public = "alice.pub.pem", private = "alice.priv.cbor" }
 ]
 
 default_node = "127.0.0.1:9000"

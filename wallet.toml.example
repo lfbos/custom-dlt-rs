@@ -15,12 +15,12 @@ my_keys = []
 # Example: To use existing keys, uncomment and set paths:
 # For Docker (accessing miner keys):
 # my_keys = [
-#     { public_key_path = "/keys/miner1/miner1.pub.pem", private_key_path = "/keys/miner1/miner1.priv.cbor" }
+#     { public = "/keys/miner1/miner1.pub.pem", private = "/keys/miner1/miner1.priv.cbor" }
 # ]
 #
 # For local (after generating keys with: cargo run --bin key_gen -- alice):
 # my_keys = [
-#     { public_key_path = "alice.pub.pem", private_key_path = "alice.priv.cbor" }
+#     { public = "alice.pub.pem", private = "alice.priv.cbor" }
 # ]
 
 # Default node to connect to
