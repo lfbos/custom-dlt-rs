@@ -41,6 +41,7 @@ FROM debian:bookworm-slim AS node
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
