@@ -1,0 +1,45 @@
+# Wallet Configuration Example
+# Copy this file to wallet.toml and customize for your use
+# 
+# For Docker use:
+#   cp wallet.toml.example wallet.toml
+#   ./docker/wallet.sh
+#
+# For local use:
+#   cp wallet.toml.example wallet.toml
+#   cargo run --bin good-wallet -- -c wallet.toml -n localhost:9000
+
+# Your wallet keys (leave empty to start fresh)
+my_keys = []
+
+# Example: To use existing keys, uncomment and set paths:
+# For Docker (accessing miner keys):
+# my_keys = [
+#     { public_key_path = "/keys/miner1/miner1.pub.pem", private_key_path = "/keys/miner1/miner1.priv.cbor" }
+# ]
+#
+# For local (after generating keys with: cargo run --bin key_gen -- alice):
+# my_keys = [
+#     { public_key_path = "alice.pub.pem", private_key_path = "alice.priv.cbor" }
+# ]
+
+# Default node to connect to
+# For Docker: use internal network address
+default_node = "172.25.0.10:9000"
+# For local: use localhost
+# default_node = "127.0.0.1:9000"
+
+# Contact list (optional)
+[[contacts]]
+name = "Alice"
+key = "alice.pub.pem"
+
+[[contacts]]
+name = "Bob"
+key = "bob.pub.pem"
+
+# Transaction fee configuration
+[fee_config]
+fee_type = "Percent"  # or "Fixed"
+value = 0.1           # 0.1% fee or fixed amount in BTC
+

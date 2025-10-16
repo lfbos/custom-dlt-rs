@@ -40,6 +40,7 @@ The system still supports `.env` files for backward compatibility, but JSON conf
 
 ### Generate Default Configuration
 
+**Blockchain Configuration:**
 ```bash
 # Generate config.default.json template
 cargo run --bin config_gen
@@ -52,6 +53,18 @@ nano config.json
 
 # Run your application (automatically loads config.json)
 cargo run --bin node
+```
+
+**Wallet Configuration:**
+```bash
+# Generate wallet.toml template
+cargo run --bin good-wallet -- generate-config -o wallet.toml
+
+# Edit wallet.toml to add your keys
+nano wallet.toml
+
+# Run the wallet
+cargo run --bin good-wallet -- -c wallet.toml -n localhost:9000
 ```
 
 ### Use Pre-configured Network Profile
