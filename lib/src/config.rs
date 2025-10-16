@@ -9,8 +9,7 @@
 /// Configuration priority (highest to lowest):
 /// 1. Environment variables (highest)
 /// 2. JSON config file (config.json)
-/// 3. .env file (legacy support)
-/// 4. Hardcoded defaults (lowest)
+/// 3. Hardcoded defaults (lowest)
 
 use crate::U256;
 use serde::{Deserialize, Serialize};
@@ -185,8 +184,7 @@ impl BlockchainConfig {
     /// Load configuration with the following priority:
     /// 1. Environment variables (highest priority)
     /// 2. JSON config file (config.json)
-    /// 3. .env file (legacy support)
-    /// 4. Hardcoded defaults (lowest priority)
+    /// 3. Hardcoded defaults (lowest priority)
     pub fn load() -> Self {
         Self::load_from_file("config.json")
     }
@@ -194,9 +192,6 @@ impl BlockchainConfig {
     /// Load configuration from a specific file path
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Self {
         let path = path.as_ref();
-        
-        // Try to load .env file first (for backward compatibility)
-        dotenvy::dotenv().ok();
         
         // Try to load JSON config file
         let mut config = if path.exists() {

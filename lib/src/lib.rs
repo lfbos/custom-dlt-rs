@@ -23,18 +23,19 @@ construct_uint! {
 // BLOCKCHAIN PARAMETERS - Default Values
 // =============================================================================
 // These constants define the default blockchain parameters.
-// They are used by the config module when no environment variables are set.
+// They are used by the config module when no configuration file is provided.
 //
 // USAGE:
 //   - Direct use: Still works but not recommended
-//   - Via config: config::initial_reward() (reads env vars, falls back to these)
+//   - Via config: config::initial_reward() (reads JSON config, env vars, then these)
 //
 // CONFIGURATION:
-//   To customize, create a .env file:
-//     cp .env.example .env
-//     nano .env  # Edit: INITIAL_REWARD=100
+//   To customize, create a JSON config file:
+//     cargo run --bin config_gen
+//     cp config.default.json config.json
+//     nano config.json  # Edit: "initial_reward": 100
 //
-// The config module uses these as defaults and allows environment variable overrides.
+// The config module loads JSON configs and allows environment variable overrides.
 // =============================================================================
 
 /// Initial reward in bitcoin - multiply by 10^8 to get satoshis
