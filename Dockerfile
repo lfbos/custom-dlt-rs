@@ -60,9 +60,8 @@ EXPOSE 9000
 # Create volume for blockchain data
 VOLUME ["/data"]
 
-# Default command
+# No default command - let docker-compose or env vars configure it
 ENTRYPOINT ["node"]
-CMD ["--port", "9000", "--blockchain-file", "/data/blockchain.cbor"]
 
 # =============================================================================
 # Stage 3: Miner Runtime
