@@ -4,7 +4,7 @@
 # =============================================================================
 # Stage 1: Builder - Compile all Rust binaries
 # =============================================================================
-FROM rust:1.75-slim AS builder
+FROM rust:latest AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \

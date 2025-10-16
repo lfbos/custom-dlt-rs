@@ -24,6 +24,7 @@ services:
       - "${NODE1_PORT:-9000}:9000"  # Configurable via env var
     volumes:
       - node1-data:/data
+      - ./config.json:/app/config.json:ro  # Mount config file (read-only, optional)
     environment:
       - NODE_PORT=9000
       - BLOCKCHAIN_FILE=/data/blockchain.cbor
@@ -57,6 +58,7 @@ services:
       - "${NODE2_PORT:-9001}:9001"
     volumes:
       - node2-data:/data
+      - ./config.json:/app/config.json:ro  # Mount config file (read-only, optional)
     environment:
       - NODE_PORT=9001
       - BLOCKCHAIN_FILE=/data/blockchain.cbor
@@ -84,6 +86,7 @@ services:
       - "${NODE3_PORT:-9002}:9002"
     volumes:
       - node3-data:/data
+      - ./config.json:/app/config.json:ro  # Mount config file (read-only, optional)
     environment:
       - NODE_PORT=9002
       - BLOCKCHAIN_FILE=/data/blockchain.cbor

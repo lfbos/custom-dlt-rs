@@ -1,6 +1,9 @@
 #!/bin/bash
 # Display status of the blockchain network
 
+# Change to project root
+cd "$(dirname "$0")/.."
+
 echo "📊 Blockchain Network Status"
 echo "=============================="
 echo ""

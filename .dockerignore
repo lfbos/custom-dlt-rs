@@ -6,7 +6,7 @@
 target/
 debug/
 **/*.rs.bk
-Cargo.lock
+# Note: Cargo.lock should be included for Docker builds for reproducibility
 
 # IDE
 .idea/
@@ -22,8 +22,14 @@ Cargo.lock
 # Blockchain data files
 *.cbor
 *.pem
-*.toml
 blockchain.cbor
+wallet_config.toml
+*_wallet.toml
+
+# But allow Cargo.toml and config files needed for builds
+!Cargo.toml
+!**/Cargo.toml
+!config*.json
 
 # Logs
 logs/

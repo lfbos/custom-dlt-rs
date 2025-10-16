@@ -3,6 +3,9 @@
 
 set -e
 
+# Change to project root
+cd "$(dirname "$0")/.."
+
 echo "🚀 Starting blockchain network..."
 
 # Start all services in detached mode
