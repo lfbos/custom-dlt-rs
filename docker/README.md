@@ -133,27 +133,34 @@ All scripts are in the `docker/` directory:
 The nodes are accessible from your host machine:
 
 ```bash
-# Generate wallet keys locally
+# Option 1: Auto-generate wallet config (recommended)
+cargo run --bin good-wallet -- generate-config -o alice_wallet.toml
+
+# Generate your keys
 cargo run --bin key_gen alice
 
-# Create wallet config pointing to dockerized node
+# Edit alice_wallet.toml to add your keys
+# Then run wallet (connects to Docker node)
+cargo run --bin good-wallet -- -c alice_wallet.toml -n localhost:9000
+
+# Option 2: Manual config creation
 cat > alice_wallet.toml << EOF
-[[my_keys]]
-public = "alice.pub.pem"
-private = "alice.priv.cbor"
+my_keys = [
+    { public_key_path = "alice.pub.pem", private_key_path = "alice.priv.cbor" }
+]
+
+default_node = "127.0.0.1:9000"
 
 [[contacts]]
 name = "Miner1"
 key = "./miner1_public.pem"
-
-default_node = "127.0.0.1:9000"
 
 [fee_config]
 fee_type = "Fixed"
 value = 1000
 EOF
 
-# Run wallet (connects to Docker node)
+# Run wallet
 cargo run --bin good-wallet -- -c alice_wallet.toml
 ```
 
