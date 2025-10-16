@@ -3,6 +3,7 @@
 
 # =============================================================================
 # Stage 1: Builder - Compile all Rust binaries
+# Use latest Rust for all features
 # =============================================================================
 FROM rust:latest AS builder
 
@@ -10,6 +11,9 @@ FROM rust:latest AS builder
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
+    libc6 \
+    libc6-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
@@ -36,8 +40,9 @@ RUN ls -lh /app/target/release/
 
 # =============================================================================
 # Stage 2: Node Runtime
+# Match rust:latest base for GLIBC compatibility
 # =============================================================================
-FROM debian:bookworm-slim AS node
+FROM debian:sid-slim AS node
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -61,8 +66,9 @@ CMD ["--port", "9000", "--blockchain-file", "/data/blockchain.cbor"]
 
 # =============================================================================
 # Stage 3: Miner Runtime
+# Match rust:latest base for GLIBC compatibility
 # =============================================================================
-FROM debian:bookworm-slim AS miner
+FROM debian:sid-slim AS miner
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -82,12 +88,9 @@ ENTRYPOINT ["miner"]
 
 # =============================================================================
 # Stage 4: Wallet Runtime
+# Use same base as builder to avoid GLIBC issues
 # =============================================================================
-FROM debian:bookworm-slim AS wallet
-
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+FROM rust:latest AS wallet
 
 WORKDIR /app
 
@@ -104,8 +107,9 @@ ENTRYPOINT ["wallet"]
 
 # =============================================================================
 # Stage 5: Utilities (for key generation, etc.)
+# Match rust:latest base for GLIBC compatibility
 # =============================================================================
-FROM debian:bookworm-slim AS utilities
+FROM debian:sid-slim AS utilities
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \

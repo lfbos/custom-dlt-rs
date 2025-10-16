@@ -35,8 +35,7 @@ services:
       - RUST_LOG=${RUST_LOG:-info}
       - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
     networks:
-      blockchain-net:
-        ipv4_address: 172.25.0.10
+      - blockchain-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "sh", "-c", "ss -ltn | grep :9000 || exit 1"]
@@ -63,12 +62,11 @@ services:
     environment:
       - NODE_PORT=9001
       - BLOCKCHAIN_FILE=/data/blockchain.cbor
-      - INITIAL_PEERS=172.25.0.10:9000
+      - INITIAL_PEERS=node1:9000
       - NETWORK_ID=${NETWORK_ID:-mainnet}
       - RUST_LOG=${RUST_LOG:-info}
     networks:
-      blockchain-net:
-        ipv4_address: 172.25.0.11
+      - blockchain-net
     depends_on:
       node1:
         condition: service_healthy
@@ -92,12 +90,11 @@ services:
     environment:
       - NODE_PORT=9002
       - BLOCKCHAIN_FILE=/data/blockchain.cbor
-      - INITIAL_PEERS=172.25.0.10:9000,172.25.0.11:9001
+      - INITIAL_PEERS=node1:9000,node2:9001
       - NETWORK_ID=${NETWORK_ID:-mainnet}
       - RUST_LOG=${RUST_LOG:-info}
     networks:
-      blockchain-net:
-        ipv4_address: 172.25.0.12
+      - blockchain-net
     depends_on:
       node1:
         condition: service_healthy
@@ -117,7 +114,7 @@ services:
     volumes:
       - miner1-keys:/keys
     environment:
-      - MINER_NODE_ADDRESS=172.25.0.10:9000
+      - MINER_NODE_ADDRESS=node1:9000
       - MINER_PUBLIC_KEY=/keys/miner1.pub.pem
       - MINING_BATCH_SIZE=${MINING_BATCH_SIZE:-2000000}
       - TEMPLATE_FETCH_INTERVAL=${TEMPLATE_FETCH_INTERVAL:-5}
@@ -142,7 +139,7 @@ services:
     volumes:
       - miner2-keys:/keys
     environment:
-      - MINER_NODE_ADDRESS=172.25.0.11:9001
+      - MINER_NODE_ADDRESS=node2:9001
       - MINER_PUBLIC_KEY=/keys/miner2.pub.pem
       - MINING_BATCH_SIZE=${MINING_BATCH_SIZE:-2000000}
       - TEMPLATE_FETCH_INTERVAL=${TEMPLATE_FETCH_INTERVAL:-5}
@@ -154,6 +151,30 @@ services:
       node2:
         condition: service_started
     restart: unless-stopped
+
+  # =============================================================================
+  # Wallet: Interactive terminal wallet (run with: docker-compose run --rm wallet)
+  # =============================================================================
+  wallet:
+    build:
+      context: .
+      target: wallet
+    container_name: blockchain-wallet
+    volumes:
+      - miner1-keys:/keys/miner1
+      - miner2-keys:/keys/miner2
+      - alice-keys:/keys/alice
+      - bob-keys:/keys/bob
+      - ./wallet.toml:/app/wallet.toml:ro
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    networks:
+      - blockchain-net
+    profiles:
+      - wallet  # Only starts when explicitly requested
+    command: ["-c", "/app/wallet.toml", "-n", "node1:9000"]
+    stdin_open: true
+    tty: true
 
   # =============================================================================
   # Utilities: Helper container for key generation and blockchain inspection
@@ -185,9 +206,6 @@ services:
 networks:
   blockchain-net:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.25.0.0/16
 
 # =============================================================================
 # Volumes (persistent storage)
