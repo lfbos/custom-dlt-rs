@@ -39,10 +39,11 @@ services:
         ipv4_address: 172.25.0.10
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "sh", "-c", "netstat -an | grep 9000 || exit 1"]
+      test: ["CMD", "sh", "-c", "ss -ltn | grep :9000 || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 30s
 
   # =============================================================================
   # Node 2: Peer Node (Connects to node1)
