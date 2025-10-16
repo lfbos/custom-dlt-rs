@@ -86,11 +86,11 @@ docker-compose logs -f miner1
 ├─────────────────────────────────────────────────┤
 │                                                 │
 │  Port 9000 ──┐                                  │
-│  Port 9001 ──┼──> Docker Network (172.25.0.0)   │
+│  Port 9001 ──┼──> Network (blockchain-net)│
 │  Port 9002 ──┘                                  │
 │                                                 │
 │   ┌──────────────────────────────────────┐      │
-│   │  Node 1 (172.25.0.10:9000)           │      │
+│   │  Node 1 (node1:9000)                 │      │
 │   │  - Seed node                         │      │
 │   │  - Volume: node1-data                │      │
 │   └────────┬─────────────────────────────┘      │
@@ -100,7 +100,7 @@ docker-compose logs -f miner1
 │   ▼                      ▼              ▼       │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────┐   │
 │  │ Node 2       │  │ Node 3       │  │Miner1│   │
-│  │ (172.25.0.11)│  │ (172.25.0.12)│  └──────┘   │
+│  │ (node2:9001) │  │ (node3:9002) │  └──────┘   │
 │  │ Port: 9001   │  │ Port: 9002   │             │
 │  └──────┬───────┘  └──────────────┘             │
 │         │                                       │
@@ -178,8 +178,8 @@ node4:
   command:
     - "--port"
     - "9003"
-    - "172.25.0.10:9000"
-    - "172.25.0.11:9001"
+    - "node1:9000"
+    - "node2:9001"
   networks:
     - blockchain-net
 ```
@@ -246,7 +246,7 @@ docker-compose ps
 docker-compose exec node1 sh -c "netstat -an | grep 9000"
 
 # Ping node2 from node1
-docker-compose exec node1 ping -c 3 172.25.0.11
+docker-compose exec node1 ping -c 3 node2
 ```
 
 ### View Resource Usage

@@ -24,8 +24,8 @@ my_keys = []
 # ]
 
 # Default node to connect to
-# For Docker: use internal network address
-default_node = "172.25.0.10:9000"
+# For Docker: use service name
+default_node = "node1:9000"
 # For local: use localhost
 # default_node = "127.0.0.1:9000"
 
