@@ -148,9 +148,15 @@ The easiest way to run everything is with Docker:
 - Node 2: `localhost:9001`
 - Node 3: `localhost:9002`
 
-**Connect your wallet:**
+**Run the wallet:**
 ```bash
-# Your local wallet can connect to the Docker network
+# Option 1: Run wallet in Docker (recommended - avoids connection issues)
+./docker/wallet.sh
+
+# Option 2: Run wallet locally (connects to Docker network)
+# First, generate wallet config
+cargo run --bin good-wallet -- generate-config -o wallet.toml
+# Then run the wallet
 cargo run --bin good-wallet -- -c wallet.toml -n localhost:9000
 ```
 
