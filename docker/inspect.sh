@@ -1,6 +1,9 @@
 #!/bin/bash
 # Inspect blockchain data using utilities container
 
+# Change to project root
+cd "$(dirname "$0")/.."
+
 echo "🔍 Blockchain Inspector"
 echo "======================="
 echo ""

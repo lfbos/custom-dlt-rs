@@ -1,6 +1,9 @@
 #!/bin/bash
 # Stop the blockchain network
 
+# Change to project root
+cd "$(dirname "$0")/.."
+
 echo "🛑 Stopping blockchain network..."
 
 docker-compose down

@@ -12,6 +12,9 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Change to project root (parent of docker directory)
+cd "$(dirname "$0")/.."
+
 echo -e "${BLUE}Step 1: Building Docker images...${NC}"
 docker-compose build
 
