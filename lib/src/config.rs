@@ -2,14 +2,12 @@
 ///
 /// This module provides a centralized configuration system that supports:
 /// - JSON configuration files (primary method)
-/// - Environment variable overrides (for flexibility)
 /// - Multiple network profiles (mainnet, testnet, devnet)
 /// - Hardcoded defaults (fallback)
 ///
-/// Configuration priority (highest to lowest):
-/// 1. Environment variables (highest)
-/// 2. JSON config file (config.json)
-/// 3. Hardcoded defaults (lowest)
+/// Configuration priority:
+/// 1. JSON config file (config.json)
+/// 2. Hardcoded defaults (fallback)
 
 use crate::U256;
 use serde::{Deserialize, Serialize};
@@ -181,10 +179,11 @@ impl Default for BlockchainConfig {
 }
 
 impl BlockchainConfig {
-    /// Load configuration with the following priority:
-    /// 1. Environment variables (highest priority)
-    /// 2. JSON config file (config.json)
-    /// 3. Hardcoded defaults (lowest priority)
+    /// Load configuration from JSON file or use defaults
+    /// 
+    /// Configuration priority:
+    /// 1. JSON config file (config.json)
+    /// 2. Hardcoded defaults (fallback)
     pub fn load() -> Self {
         Self::load_from_file("config.json")
     }
@@ -194,114 +193,29 @@ impl BlockchainConfig {
         let path = path.as_ref();
         
         // Try to load JSON config file
-        let mut config = if path.exists() {
+        if path.exists() {
             match std::fs::read_to_string(path) {
                 Ok(contents) => match serde_json::from_str::<BlockchainConfig>(&contents) {
                     Ok(cfg) => {
                         eprintln!("✓ Loaded configuration from {}", path.display());
-                        cfg
+                        return cfg;
                     }
                     Err(e) => {
                         eprintln!("⚠ Warning: Failed to parse {}: {}", path.display(), e);
                         eprintln!("  Using defaults instead");
-                        BlockchainConfig::default()
                     }
                 },
-                Err(_) => {
-                    eprintln!("⚠ Warning: Could not read {}, using defaults", path.display());
-                    BlockchainConfig::default()
+                Err(e) => {
+                    eprintln!("⚠ Warning: Could not read {}: {}", path.display(), e);
+                    eprintln!("  Using defaults instead");
                 }
             }
         } else {
             eprintln!("ℹ No config file found at {}, using defaults", path.display());
-            BlockchainConfig::default()
-        };
-        
-        // Apply environment variable overrides on top of JSON config
-        config.apply_env_overrides();
-        
-        config
-    }
-    
-    /// Apply environment variable overrides to existing configuration
-    fn apply_env_overrides(&mut self) {
-        // Network overrides
-        if let Some(v) = env_var("NETWORK_ID") {
-            self.network.network_id = v;
-        }
-        if let Some(v) = parse_env("INITIAL_REWARD") {
-            self.network.initial_reward = v;
-        }
-        if let Some(v) = parse_env("HALVING_INTERVAL") {
-            self.network.halving_interval = v;
-        }
-        if let Some(v) = parse_env("IDEAL_BLOCK_TIME") {
-            self.network.ideal_block_time = v;
-        }
-        if let Some(v) = parse_env("DIFFICULTY_UPDATE_INTERVAL") {
-            self.network.difficulty_update_interval = v;
-        }
-        if let Some(v) = parse_env("MAX_MEMPOOL_TX_AGE") {
-            self.network.max_mempool_transaction_age = v;
-        }
-        if let Some(v) = parse_env("BLOCK_TX_CAP") {
-            self.network.block_transaction_cap = v;
-        }
-        if let Some(v) = env_var("MIN_TARGET_HEX") {
-            self.network.min_target_hex = v;
         }
         
-        // Node overrides
-        if let Some(v) = parse_env("NODE_PORT") {
-            self.node.port = v;
-        }
-        if let Some(v) = env_var("BLOCKCHAIN_FILE") {
-            self.node.blockchain_file = v;
-        }
-        if let Some(v) = env_var("INITIAL_PEERS") {
-            self.node.initial_peers = if v.is_empty() {
-                vec![]
-            } else {
-                v.split(',').map(|s| s.trim().to_string()).collect()
-            };
-        }
-        if let Some(v) = parse_env("MEMPOOL_CLEANUP_INTERVAL") {
-            self.node.mempool_cleanup_interval_secs = v;
-        }
-        if let Some(v) = parse_env("BLOCKCHAIN_SAVE_INTERVAL") {
-            self.node.blockchain_save_interval_secs = v;
-        }
-        if let Some(v) = parse_env("MAX_PEERS") {
-            self.node.max_peers = v;
-        }
-        
-        // Mining overrides
-        if let Some(v) = parse_env("MINING_BATCH_SIZE") {
-            self.mining.mining_batch_size = v;
-        }
-        if let Some(v) = parse_env("TEMPLATE_FETCH_INTERVAL") {
-            self.mining.template_fetch_interval_secs = v;
-        }
-        if let Some(v) = env_var("MINER_NODE_ADDRESS") {
-            self.mining.node_address = v;
-        }
-        if let Some(v) = env_var("MINER_PUBLIC_KEY") {
-            self.mining.public_key_file = v;
-        }
-        
-        // Wallet overrides
-        if let Some(v) = parse_env("UTXO_UPDATE_INTERVAL") {
-            self.wallet.utxo_update_interval_secs = v;
-        }
-        if let Some(v) = parse_env("BALANCE_UPDATE_INTERVAL_MS") {
-            self.wallet.balance_display_update_interval_ms = v;
-        }
-        if let Some(v) = env_var("WALLET_NODE_ADDRESS") {
-            self.wallet.node_address = v;
-        }
-        if let Some(v) = env_var("WALLET_CONFIG_FILE") {
-            self.wallet.config_file = v;
-        }
+        // Fallback to defaults
+        BlockchainConfig::default()
     }
     
     /// Save configuration to a JSON file
@@ -330,52 +244,41 @@ impl BlockchainConfig {
 // =============================================================================
 // Helper Functions for Easy Access
 // =============================================================================
-// These functions provide easy access to configuration values.
-// They use environment variables if set, otherwise fall back to constants.
+// These functions provide easy access to configuration values from the global config.
 
-/// Get initial reward (configurable via INITIAL_REWARD env var)
+/// Get initial reward from config
 pub fn initial_reward() -> u64 {
     BlockchainConfig::global().network.initial_reward
 }
 
-/// Get halving interval (configurable via HALVING_INTERVAL env var)
+/// Get halving interval from config
 pub fn halving_interval() -> u64 {
     BlockchainConfig::global().network.halving_interval
 }
 
-/// Get ideal block time (configurable via IDEAL_BLOCK_TIME env var)
+/// Get ideal block time from config
 pub fn ideal_block_time() -> u64 {
     BlockchainConfig::global().network.ideal_block_time
 }
 
-/// Get minimum target (configurable via MIN_TARGET_HEX env var)
+/// Get minimum target from config
 pub fn min_target() -> U256 {
     BlockchainConfig::global().min_target()
 }
 
-/// Get difficulty update interval (configurable via DIFFICULTY_UPDATE_INTERVAL env var)
+/// Get difficulty update interval from config
 pub fn difficulty_update_interval() -> u64 {
     BlockchainConfig::global().network.difficulty_update_interval
 }
 
-/// Get max mempool transaction age (configurable via MAX_MEMPOOL_TX_AGE env var)
+/// Get max mempool transaction age from config
 pub fn max_mempool_transaction_age() -> u64 {
     BlockchainConfig::global().network.max_mempool_transaction_age
 }
 
-/// Get block transaction cap (configurable via BLOCK_TX_CAP env var)
+/// Get block transaction cap from config
 pub fn block_transaction_cap() -> usize {
     BlockchainConfig::global().network.block_transaction_cap
-}
-
-/// Helper function to get environment variable
-fn env_var(key: &str) -> Option<String> {
-    std::env::var(key).ok()
-}
-
-/// Helper function to parse environment variable
-fn parse_env<T: std::str::FromStr>(key: &str) -> Option<T> {
-    env_var(key)?.parse().ok()
 }
 
 #[cfg(test)]
