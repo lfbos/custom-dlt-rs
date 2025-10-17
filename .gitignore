@@ -129,7 +129,6 @@ wallet.toml
 
 # But allow example wallet config
 !wallet.toml.example
-
 # Legacy environment files (no longer used, but keep ignored for safety)
 .env
 .env.local

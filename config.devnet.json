@@ -1,0 +1,33 @@
+{
+  "network": {
+    "network_id": "devnet",
+    "initial_reward": 50,
+    "halving_interval": 50,
+    "ideal_block_time": 2,
+    "difficulty_update_interval": 10,
+    "max_mempool_transaction_age": 120,
+    "block_transaction_cap": 5,
+    "min_target_hex": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+  },
+  "node": {
+    "port": 29000,
+    "blockchain_file": "./blockchain.devnet.cbor",
+    "initial_peers": [],
+    "mempool_cleanup_interval_secs": 10,
+    "blockchain_save_interval_secs": 5,
+    "max_peers": 10
+  },
+  "mining": {
+    "mining_batch_size": 100000,
+    "template_fetch_interval_secs": 1,
+    "node_address": "127.0.0.1:29000",
+    "public_key_file": "miner.pub.pem"
+  },
+  "wallet": {
+    "utxo_update_interval_secs": 5,
+    "balance_display_update_interval_ms": 250,
+    "node_address": "127.0.0.1:29000",
+    "config_file": "wallet_config.toml"
+  }
+}
+
