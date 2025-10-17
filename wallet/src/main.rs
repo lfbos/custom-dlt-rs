@@ -17,10 +17,18 @@ use util::{big_mode_btc, generate_dummy_config, setup_panic_hook, setup_tracing}
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
-    #[arg(short, long, value_name = "FILE", default_value_os_t = PathBuf::from("wallet_config.toml"))]
+    
+    /// Path to wallet configuration file
+    #[arg(short, long, value_name = "FILE", env = "WALLET_CONFIG", default_value = "wallet_config.toml")]
     config: PathBuf,
-    #[arg(short, long, value_name = "ADDRESS")]
+    
+    /// Node address to connect to
+    #[arg(short, long, value_name = "ADDRESS", env = "WALLET_NODE_ADDRESS")]
     node: Option<String>,
+    
+    /// Path to blockchain configuration file
+    #[arg(long, env = "CONFIG_FILE", default_value = "config.json")]
+    blockchain_config: String,
 }
 
 #[derive(Subcommand)]
@@ -36,7 +44,10 @@ async fn main() -> Result<()> {
     setup_tracing()?;
     setup_panic_hook();
     info!("Starting wallet application");
+    
+    // Parse command line arguments (includes environment variables)
     let cli = Cli::parse();
+    
     match &cli.command {
         Some(Commands::GenerateConfig { output }) => {
             debug!("Generating dummy config at: {:?}", output);
@@ -44,8 +55,16 @@ async fn main() -> Result<()> {
         }
         None => (),
     }
-    info!("Loading config from: {:?}", cli.config);
+    
+    // Load blockchain configuration from JSON file
+    use btclib::config::BlockchainConfig;
+    let _blockchain_config = BlockchainConfig::load_from_file(&cli.blockchain_config);
+    
+    // Load wallet configuration from TOML file
+    info!("Loading wallet config from: {:?}", cli.config);
     let mut core = Core::load(cli.config.clone()).await?;
+    
+    // Priority: CLI args > Environment vars > Wallet config
     if let Some(node) = cli.node {
         info!("Overriding default node with: {}", node);
         core.config.default_node = node;

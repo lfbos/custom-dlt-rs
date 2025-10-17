@@ -15,13 +15,17 @@ use tokio::{net::TcpStream, sync::Mutex, time::interval};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short, long)]
-    /// Node address to connect to (defaults to MINER_NODE_ADDRESS env var)
+    /// Node address to connect to
+    #[arg(short, long, env = "MINER_NODE_ADDRESS")]
     address: Option<String>,
     
-    #[arg(short, long)]
-    /// Public key file for receiving rewards (defaults to MINER_PUBLIC_KEY env var)
+    /// Public key file for receiving rewards
+    #[arg(short, long, env = "MINER_PUBLIC_KEY")]
     public_key_file: Option<String>,
+    
+    /// Path to configuration file
+    #[arg(short, long, env = "CONFIG_FILE", default_value = "config.json")]
+    config: String,
 }
 
 struct Miner {
@@ -159,12 +163,13 @@ impl Miner {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Load configuration
-    let config = BlockchainConfig::global();
-    
+    // Parse command line arguments (includes environment variables)
     let cli = Cli::parse();
     
-    // Priority: CLI args > Environment vars > Defaults
+    // Load configuration from JSON file
+    let config = BlockchainConfig::load_from_file(&cli.config);
+    
+    // Priority: CLI args > Environment vars > JSON config > Defaults
     let address = cli.address.unwrap_or_else(|| config.mining.node_address.clone());
     let public_key_file = cli.public_key_file.unwrap_or_else(|| config.mining.public_key_file.clone());
     

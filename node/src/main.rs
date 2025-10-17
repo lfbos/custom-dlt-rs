@@ -1,5 +1,5 @@
 use anyhow::Result;
-use argh::FromArgs;
+use clap::Parser;
 use btclib::config::BlockchainConfig;
 use btclib::types::Blockchain;
 use dashmap::DashMap;
@@ -17,34 +17,40 @@ pub static BLOCKCHAIN: RwLock<Blockchain> = RwLock::new(Blockchain::new());
 #[dynamic]
 pub static NODES: DashMap<String, TcpStream> = DashMap::new();
 
-#[derive(FromArgs)]
-/// A toy blockchain node
+#[derive(Parser)]
+#[command(author, version, about = "A toy blockchain node", long_about = None)]
 struct Args {
-    #[argh(option)]
-    /// port number (defaults to NODE_PORT env var or 9000)
+    /// Port number to listen on
+    #[arg(short, long, env = "NODE_PORT")]
     port: Option<u16>,
-    #[argh(option)]
-    /// blockchain file location (defaults to BLOCKCHAIN_FILE env var or ./blockchain.cbor)
+    
+    /// Blockchain file location
+    #[arg(short, long, env = "BLOCKCHAIN_FILE")]
     blockchain_file: Option<String>,
-    #[argh(positional)]
-    /// addresses of initial nodes (can also use INITIAL_PEERS env var)
+    
+    /// Addresses of initial peer nodes
+    #[arg(short = 'n', long = "node", env = "INITIAL_PEERS", value_delimiter = ',')]
     nodes: Vec<String>,
+    
+    /// Path to configuration file
+    #[arg(short, long, env = "CONFIG_FILE", default_value = "config.json")]
+    config: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Load configuration from environment
-    let config = BlockchainConfig::global();
+    // Parse command line arguments (includes environment variables)
+    let args = Args::parse();
     
-    // Parse command line arguments
-    let args: Args = argh::from_env();
+    // Load configuration from JSON file
+    let config = BlockchainConfig::load_from_file(&args.config);
     
-    // Priority: CLI args > Environment vars > Defaults
+    // Priority: CLI args > Environment vars > JSON config > Defaults
     let port = args.port.unwrap_or(config.node.port);
     let blockchain_file = args.blockchain_file
         .unwrap_or_else(|| config.node.blockchain_file.clone());
     
-    // Combine CLI nodes with env var nodes
+    // Priority for nodes: CLI/env nodes if provided, otherwise config nodes
     let mut nodes = args.nodes;
     if nodes.is_empty() {
         nodes = config.node.initial_peers.clone();

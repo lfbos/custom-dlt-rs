@@ -8,7 +8,7 @@ description = "Terminal UI wallet for educational blockchain"
 
 [dependencies]
 anyhow = "1.0.100"
-clap = { version = "4.5.48", features = ["derive"] }
+clap = { version = "4.5.48", features = ["derive", "env"] }
 crossbeam-skiplist = "0.1.3"
 cursive = "0.21.1"
 futures = "0.3.31"

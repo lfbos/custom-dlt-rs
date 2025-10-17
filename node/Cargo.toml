@@ -9,7 +9,7 @@ description = "Full node implementation for educational blockchain"
 [dependencies]
 anyhow = "1.0.100"
 btclib = { version = "0.1.0", path = "../lib" }
-argh = "0.1.13"
+clap = { version = "4.5.48", features = ["derive", "env"] }
 chrono = "0.4.42"
 dashmap = "6.1.0"
 static_init = "1.0.4"

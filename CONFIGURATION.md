@@ -16,25 +16,34 @@ Complete guide to configuring the blockchain using JSON config files and environ
 
 ## Overview
 
-This blockchain supports flexible configuration through:
-- 📋 **JSON config files** - Primary configuration method (discoverable, validated)
-- 🔧 **Environment variables** - Override specific values
-- 📄 **.env files** - Legacy support
+This blockchain is configured **primarily through JSON files**. CLI arguments and environment variables are available only as **optional overrides** for testing and special cases.
+
+**Configuration Methods:**
+- 📋 **JSON config files** - ⭐ **PRIMARY METHOD** - Use this for all configuration
+- 🔧 **CLI arguments** - Optional overrides for quick testing
+- 🌍 **Environment variables** - Optional overrides for CI/CD and Docker
 - 🏭 **Hardcoded defaults** - Fallback when no config provided
 
 ### Why JSON Config Files?
 
-**Benefits:**
+JSON files are the **recommended and primary** configuration method because they are:
+
 - ✅ **Discoverable** - All settings visible in one file
 - ✅ **Validated** - Parse errors detected at startup (no silent failures from typos)
 - ✅ **Self-documenting** - See all available options with their values
 - ✅ **Version controllable** - Ship templates with your project
 - ✅ **Type-safe** - Invalid types caught immediately
-- ✅ **Still flexible** - Environment variables can override any setting
+- ✅ **Complete** - All parameters in one place, not scattered across env vars
 
-### Migration from .env
+**CLI arguments and environment variables should only be used for:**
+- Quick testing and debugging (temporary overrides)
+- CI/CD pipelines (scripted overrides)
+- Docker deployments (container-specific overrides)
+- One-off parameter changes without editing files
 
-The system still supports `.env` files for backward compatibility, but JSON configs are recommended. See [Migration Guide](#migration-from-environment-variables) below.
+### Important: No More .env Files
+
+This project has **migrated away from environment variables** as the primary configuration method. While env vars still work as overrides (via Clap), you should configure everything in JSON files. See [Migration Guide](#migration-from-environment-variables) below if you're upgrading from an older version.
 
 ## Quick Start
 
@@ -82,33 +91,81 @@ cargo run --bin node
 
 ## Configuration Priority
 
+**⚠️ Important:** You should configure everything in `config.json`. CLI arguments and environment variables are **only for overrides**, not primary configuration.
+
 Settings are applied in this order (highest to lowest):
 
 ```
-1. Environment variables  (highest priority)
+1. Command-line arguments  (highest priority - USE ONLY FOR TESTING)
+   └─ Example: cargo run --bin node -- --port 9001
+   
+2. Environment variables  (USE ONLY FOR CI/CD OR DOCKER)
    └─ Example: NODE_PORT=9001 cargo run --bin node
    
-2. JSON config file (config.json)
+3. JSON config file  (⭐ PRIMARY - USE THIS)
    └─ Example: {"node": {"port": 9000}}
    
-3. .env file in current directory (legacy support)
-   └─ Example: NODE_PORT=9001 in .env
-   
-4. Hardcoded defaults  (lowest priority)
-   └─ Fallback if no config file exists
+4. Hardcoded defaults  (lowest priority - fallback only)
+   └─ Used when no config file exists
 ```
 
-### Example
+### Recommended Workflow
+
+**✅ Correct approach:**
+```bash
+# 1. Create/edit config.json (PRIMARY CONFIGURATION)
+cp config.default.json config.json
+nano config.json
+
+# 2. Run normally (uses config.json)
+cargo run --bin node
+
+# 3. Temporarily override for testing (optional)
+cargo run --bin node -- --port 9001  # Quick test
+```
+
+**❌ Avoid this approach:**
+```bash
+# Don't configure via CLI args or env vars
+cargo run --bin node -- --port 9000 --blockchain-file ./chain.cbor --node 127.0.0.1:9001
+# Instead, put these settings in config.json!
+```
+
+### How Clap Powers This System
+
+All applications (node, miner, wallet) use **Clap** for command-line argument parsing. Clap provides:
+
+- ✅ **Automatic help messages** - Run `--help` to see all available options
+- ✅ **Optional override support** - CLI args and env vars work as overrides
+- ✅ **Type validation** - Wrong types caught immediately
+- ✅ **Discoverable** - All settings documented in `--help` output
+
+Run any binary with `--help` to see available override options:
+```bash
+cargo run --bin node -- --help
+cargo run --bin miner -- --help
+cargo run --bin good-wallet -- --help
+```
+
+### Priority Example
 
 ```bash
-# config.json contains: "port": 9000
-→ Uses 9000
+# Scenario: config.json contains: "port": 9000
 
-# Override with environment variable
+# 1. No overrides → Uses config file
+cargo run --bin node
+→ Uses 9000 (from config.json)
+
+# 2. Environment variable override
 NODE_PORT=9001 cargo run --bin node
-→ Uses 9001 (env var wins!)
+→ Uses 9001 (env var overrides config)
 
-# No config.json exists
+# 3. CLI argument override (highest priority)
+NODE_PORT=9001 cargo run --bin node -- --port 9002
+→ Uses 9002 (CLI arg overrides both env var and config)
+
+# 4. No config.json exists
+cargo run --bin node
 → Uses 9000 (built-in default)
 ```
 
@@ -216,15 +273,75 @@ cp config.devnet.json config.json
 - Instant mining (very easy difficulty)
 - Port: 29000
 
-## Environment Variables Reference
+## Command-Line Arguments (Optional Overrides)
 
-**Note:** Environment variables now serve as **overrides** to JSON config files. They are optional and should be used for:
-- Quick testing/debugging
-- CI/CD environments
-- Docker deployments
-- Overriding specific values without editing config files
+**Note:** These are **optional overrides** for testing. Configure everything in `config.json` first!
 
-For primary configuration, use JSON config files (see above).
+All binaries support command-line arguments powered by Clap. Each argument can also be set via environment variables for CI/CD or Docker use cases.
+
+### Node Arguments
+
+```bash
+cargo run --bin node -- --help
+
+Options:
+  -p, --port <PORT>                    Port number to listen on [env: NODE_PORT=]
+  -b, --blockchain-file <FILE>         Blockchain file location [env: BLOCKCHAIN_FILE=]
+  -n, --node <NODES>                   Addresses of initial peer nodes [env: INITIAL_PEERS=]
+  -c, --config <CONFIG>                Path to configuration file [env: CONFIG_FILE=] [default: config.json]
+  -h, --help                           Print help
+  -V, --version                        Print version
+```
+
+### Miner Arguments
+
+```bash
+cargo run --bin miner -- --help
+
+Options:
+  -a, --address <ADDRESS>              Node address to connect to [env: MINER_NODE_ADDRESS=]
+  -p, --public-key-file <FILE>         Public key file for rewards [env: MINER_PUBLIC_KEY=]
+  -c, --config <CONFIG>                Path to configuration file [env: CONFIG_FILE=] [default: config.json]
+  -h, --help                           Print help
+  -V, --version                        Print version
+```
+
+### Wallet Arguments
+
+```bash
+cargo run --bin good-wallet -- --help
+
+Options:
+  -c, --config <FILE>                  Path to wallet configuration file [env: WALLET_CONFIG=] [default: wallet_config.toml]
+  -n, --node <ADDRESS>                 Node address to connect to [env: WALLET_NODE_ADDRESS=]
+  --blockchain-config <FILE>           Path to blockchain configuration file [env: CONFIG_FILE=] [default: config.json]
+  -h, --help                           Print help
+  -V, --version                        Print version
+```
+
+## Environment Variables Reference (Optional Overrides)
+
+**⚠️ Important:** Environment variables are **NOT** the primary configuration method. They exist only as **optional overrides**.
+
+**Primary method:** Configure everything in `config.json`
+
+**Use env vars only for:**
+- CI/CD pipelines (automated overrides)
+- Docker deployments (container-specific overrides)
+- Quick testing without editing files
+
+**All environment variables can also be passed as command-line arguments** (see above).
+
+### Why Not Use Environment Variables for Primary Config?
+
+Environment variables have several drawbacks:
+- ❌ Hidden and hard to discover
+- ❌ Scattered across different places
+- ❌ No validation until runtime
+- ❌ Typos fail silently
+- ❌ Not self-documenting
+
+**Use JSON files instead!** They address all these issues.
 
 ### Network Consensus Parameters
 
@@ -377,17 +494,41 @@ cargo run --bin miner
 }
 ```
 
-### Example 4: Override Single Parameter with Environment Variable
+### Example 4: Temporary Overrides (Testing Only)
 
+**Primary configuration should be in config.json!** These overrides are only for testing.
+
+**Using CLI Arguments (for quick testing):**
 ```bash
-# Use config.json but override block time for quick test
-IDEAL_BLOCK_TIME=5 cargo run --bin node
+# Temporarily override port for testing
+cargo run --bin node -- --port 9001
 
-# Use config.json but enable debug logging
+# Temporarily use different config file
+cargo run --bin node -- --config config.testnet.json
+
+# Test with different miner address
+cargo run --bin miner -- --address 127.0.0.1:9001
+```
+
+**Using Environment Variables (for CI/CD or Docker):**
+```bash
+# Override in CI/CD pipeline
+NODE_PORT=9001 cargo run --bin node
+
+# Enable debug logging (always via env var)
 RUST_LOG=debug cargo run --bin miner
 
-# Combine multiple overrides
-IDEAL_BLOCK_TIME=3 BLOCK_TX_CAP=10 cargo run --bin node
+# Docker-specific override
+NODE_PORT=9001 BLOCKCHAIN_FILE=/data/chain.cbor cargo run --bin node
+```
+
+**Priority when combining (CLI > Env > Config):**
+```bash
+# config.json has port: 9000
+# Environment variable: NODE_PORT=8888
+# CLI argument: --port 9002
+NODE_PORT=8888 cargo run --bin node -- --port 9002
+# Result: Uses 9002 (CLI has highest priority)
 ```
 
 ### Example 5: Production-Like Setup
@@ -503,14 +644,33 @@ NODE3_PORT=9002  # Host port for node3
 cp config.testnet.json config.json
 cargo run --bin node
 
+# ✅ Good: Override specific value with CLI arg
+cargo run --bin node -- --port 9001
+
 # ⚠️ Acceptable for quick tests: Env vars
-IDEAL_BLOCK_TIME=5 cargo run --bin node
+NODE_PORT=9001 cargo run --bin node
 
 # ❌ Bad: Many env vars without config file
 IDEAL_BLOCK_TIME=5 BLOCK_TX_CAP=10 NODE_PORT=9001 ... cargo run --bin node
 ```
 
-### 2. Different Configs for Different Networks
+### 2. Use `--help` for Discoverability
+
+All CLI arguments and their environment variable equivalents are documented:
+
+```bash
+# See all available options
+cargo run --bin node -- --help
+cargo run --bin miner -- --help
+cargo run --bin good-wallet -- --help
+
+# Each option shows:
+# - Description
+# - Environment variable name
+# - Default value
+```
+
+### 3. Different Configs for Different Networks
 
 ```bash
 project/
@@ -531,7 +691,7 @@ ln -sf config.default.json config.json  # Switch to mainnet
 cargo run --bin node
 ```
 
-### 3. Never Commit Active Config Files
+### 4. Never Commit Active Config Files
 
 ```bash
 # .gitignore should include:
@@ -546,7 +706,7 @@ config.testnet.json
 config.devnet.json
 ```
 
-### 4. Validate JSON Syntax
+### 5. Validate JSON Syntax
 
 Always validate your JSON before deploying:
 
@@ -559,17 +719,39 @@ cargo run --bin node
 # Look for: "✓ Loaded configuration from config.json"
 ```
 
-### 5. Use Environment Variables for Overrides Only
+### 6. Configure in JSON, Not CLI Args or Env Vars
+
+**⭐ This is the most important best practice!**
 
 ```bash
-# ✅ Good: Override specific values for testing
-IDEAL_BLOCK_TIME=3 cargo run --bin node
+# ✅ CORRECT: Configuration in config.json
+# Edit config.json with all your settings
+nano config.json
+cargo run --bin node
 
-# ✅ Good: CI/CD overrides
+# ✅ CORRECT: Temporary override for testing
+cargo run --bin node -- --port 9001
+
+# ⚠️ ACCEPTABLE: CI/CD or Docker override
 NODE_PORT=9001 cargo run --bin node
 
-# ❌ Bad: All config via env vars (use JSON instead)
+# ❌ WRONG: Configuring everything via CLI args
+cargo run --bin node -- --port 9000 --blockchain-file ./chain.cbor --node 127.0.0.1:9001
+# Put these in config.json instead!
+
+# ❌ WRONG: Configuring everything via env vars
+export NODE_PORT=9000
+export BLOCKCHAIN_FILE=./chain.cbor
+export INITIAL_PEERS=127.0.0.1:9001
+cargo run --bin node
+# Put these in config.json instead!
 ```
+
+**Why?**
+- Config files are discoverable, validated, and self-documenting
+- CLI args and env vars are for temporary overrides only
+- Your configuration should be in version control (as JSON templates)
+- Env vars and CLI args are scattered and hard to track
 
 ## Troubleshooting
 
