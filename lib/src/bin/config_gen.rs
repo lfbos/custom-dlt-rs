@@ -23,15 +23,15 @@ fn main() {
     // Save to file
     match config.save_to_file(output_file) {
         Ok(_) => {
-            eprintln!("✓ Generated default configuration:");
-            eprintln!("  File: {}", output_file);
-            eprintln!();
-            eprintln!("To use this configuration:");
-            eprintln!("  1. Copy it: cp {} config.json", output_file);
-            eprintln!("  2. Edit config.json to customize settings");
-            eprintln!("  3. Run your application (it will automatically load config.json)");
-            eprintln!();
-            eprintln!("Environment variables will still override config file values.");
+            println!("✓ Generated default configuration:");
+            println!("  File: {}", output_file);
+            println!();
+            println!("To use this configuration:");
+            println!("  1. Copy it: cp {} config.json", output_file);
+            println!("  2. Edit config.json to customize settings");
+            println!("  3. Run your application (it will automatically load config.json)");
+            println!();
+            println!("Environment variables will still override config file values.");
         }
         Err(e) => {
             eprintln!("✗ Error generating config file: {}", e);
