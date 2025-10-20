@@ -14,6 +14,9 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::OnceLock;
 
+/// Default configuration file name
+pub const DEFAULT_CONFIG_FILE: &str = "config.json";
+
 /// Global configuration instance
 static CONFIG: OnceLock<BlockchainConfig> = OnceLock::new();
 
@@ -185,7 +188,7 @@ impl BlockchainConfig {
     /// 1. JSON config file (config.json)
     /// 2. Hardcoded defaults (fallback)
     pub fn load() -> Self {
-        Self::load_from_file("config.json")
+        Self::load_from_file(DEFAULT_CONFIG_FILE)
     }
     
     /// Load configuration from a specific file path
