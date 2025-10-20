@@ -185,40 +185,50 @@ impl BlockchainConfig {
     /// Load configuration from JSON file or use defaults
     /// 
     /// Configuration priority:
-    /// 1. JSON config file (config.json)
-    /// 2. Hardcoded defaults (fallback)
+    /// 1. JSON config file (config.json) - if it exists and is valid
+    /// 2. Hardcoded defaults (if default config file doesn't exist)
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the default config file exists but cannot be read or parsed.
+    /// This ensures configuration errors are caught early rather than silently ignored.
     pub fn load() -> Self {
-        Self::load_from_file(DEFAULT_CONFIG_FILE)
+        match Self::load_from_file(DEFAULT_CONFIG_FILE) {
+            Ok(config) => config,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                eprintln!("ℹ No config file found at {}, using defaults", DEFAULT_CONFIG_FILE);
+                BlockchainConfig::default()
+            }
+            Err(e) => {
+                eprintln!("✗ Error loading configuration from {}: {}", DEFAULT_CONFIG_FILE, e);
+                eprintln!("  Please fix the configuration file or remove it to use defaults.");
+                panic!("Failed to load configuration");
+            }
+        }
     }
     
     /// Load configuration from a specific file path
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Self {
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - The file does not exist
+    /// - The file cannot be read
+    /// - The file contains invalid JSON
+    /// - The JSON does not match the expected configuration structure
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
         let path = path.as_ref();
         
-        // Try to load JSON config file
-        if path.exists() {
-            match std::fs::read_to_string(path) {
-                Ok(contents) => match serde_json::from_str::<BlockchainConfig>(&contents) {
-                    Ok(cfg) => {
-                        eprintln!("✓ Loaded configuration from {}", path.display());
-                        return cfg;
-                    }
-                    Err(e) => {
-                        eprintln!("⚠ Warning: Failed to parse {}: {}", path.display(), e);
-                        eprintln!("  Using defaults instead");
-                    }
-                },
-                Err(e) => {
-                    eprintln!("⚠ Warning: Could not read {}: {}", path.display(), e);
-                    eprintln!("  Using defaults instead");
-                }
-            }
-        } else {
-            eprintln!("ℹ No config file found at {}, using defaults", path.display());
-        }
+        let contents = std::fs::read_to_string(path)?;
         
-        // Fallback to defaults
-        BlockchainConfig::default()
+        let config = serde_json::from_str::<BlockchainConfig>(&contents)
+            .map_err(|e| std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to parse configuration: {}", e)
+            ))?;
+        
+        eprintln!("✓ Loaded configuration from {}", path.display());
+        Ok(config)
     }
     
     /// Save configuration to a JSON file
