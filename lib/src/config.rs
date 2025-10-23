@@ -1,18 +1,21 @@
 /// Configuration module for blockchain parameters
 ///
 /// This module provides a centralized configuration system that supports:
-/// - Hardcoded defaults (for educational simplicity)
-/// - Environment variable overrides (for flexibility)
+/// - JSON configuration files (primary method)
 /// - Multiple network profiles (mainnet, testnet, devnet)
+/// - Hardcoded defaults (fallback)
 ///
-/// Configuration priority (highest to lowest):
-/// 1. Environment variables
-/// 2. .env file
-/// 3. Hardcoded defaults
+/// Configuration priority:
+/// 1. JSON config file (config.json)
+/// 2. Hardcoded defaults (fallback)
 
 use crate::U256;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::OnceLock;
+
+/// Default configuration file name
+pub const DEFAULT_CONFIG_FILE: &str = "config.json";
 
 /// Global configuration instance
 static CONFIG: OnceLock<BlockchainConfig> = OnceLock::new();
@@ -179,23 +182,60 @@ impl Default for BlockchainConfig {
 }
 
 impl BlockchainConfig {
-    /// Load configuration with the following priority:
-    /// 1. Environment variables (highest priority)
-    /// 2. .env file
-    /// 3. Hardcoded defaults (lowest priority)
+    /// Load configuration from JSON file or use defaults
+    /// 
+    /// Configuration priority:
+    /// 1. JSON config file (config.json) - if it exists and is valid
+    /// 2. Hardcoded defaults (if default config file doesn't exist)
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the default config file exists but cannot be read or parsed.
+    /// This ensures configuration errors are caught early rather than silently ignored.
     pub fn load() -> Self {
-        // Try to load .env file (fails silently if not found)
-        dotenvy::dotenv().ok();
+        match Self::load_from_file(DEFAULT_CONFIG_FILE) {
+            Ok(config) => config,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                eprintln!("ℹ No config file found at {}, using defaults", DEFAULT_CONFIG_FILE);
+                BlockchainConfig::default()
+            }
+            Err(e) => {
+                eprintln!("✗ Error loading configuration from {}: {}", DEFAULT_CONFIG_FILE, e);
+                eprintln!("  Please fix the configuration file or remove it to use defaults.");
+                panic!("Failed to load configuration");
+            }
+        }
+    }
+    
+    /// Load configuration from a specific file path
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if:
+    /// - The file does not exist
+    /// - The file cannot be read
+    /// - The file contains invalid JSON
+    /// - The JSON does not match the expected configuration structure
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
+        let path = path.as_ref();
         
-        let mut config = BlockchainConfig::default();
+        let contents = std::fs::read_to_string(path)?;
         
-        // Override with environment variables
-        config.network = NetworkConfig::from_env();
-        config.node = NodeConfig::from_env();
-        config.mining = MiningConfig::from_env();
-        config.wallet = WalletConfig::from_env();
+        let config = serde_json::from_str::<BlockchainConfig>(&contents)
+            .map_err(|e| std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to parse configuration: {}", e)
+            ))?;
         
-        config
+        eprintln!("✓ Loaded configuration from {}", path.display());
+        Ok(config)
+    }
+    
+    /// Save configuration to a JSON file
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(path.as_ref(), json)?;
+        Ok(())
     }
     
     /// Get or initialize the global configuration
@@ -217,110 +257,41 @@ impl BlockchainConfig {
 // =============================================================================
 // Helper Functions for Easy Access
 // =============================================================================
-// These functions provide easy access to configuration values.
-// They use environment variables if set, otherwise fall back to constants.
+// These functions provide easy access to configuration values from the global config.
 
-/// Get initial reward (configurable via INITIAL_REWARD env var)
+/// Get initial reward from config
 pub fn initial_reward() -> u64 {
     BlockchainConfig::global().network.initial_reward
 }
 
-/// Get halving interval (configurable via HALVING_INTERVAL env var)
+/// Get halving interval from config
 pub fn halving_interval() -> u64 {
     BlockchainConfig::global().network.halving_interval
 }
 
-/// Get ideal block time (configurable via IDEAL_BLOCK_TIME env var)
+/// Get ideal block time from config
 pub fn ideal_block_time() -> u64 {
     BlockchainConfig::global().network.ideal_block_time
 }
 
-/// Get minimum target (configurable via MIN_TARGET_HEX env var)
+/// Get minimum target from config
 pub fn min_target() -> U256 {
     BlockchainConfig::global().min_target()
 }
 
-/// Get difficulty update interval (configurable via DIFFICULTY_UPDATE_INTERVAL env var)
+/// Get difficulty update interval from config
 pub fn difficulty_update_interval() -> u64 {
     BlockchainConfig::global().network.difficulty_update_interval
 }
 
-/// Get max mempool transaction age (configurable via MAX_MEMPOOL_TX_AGE env var)
+/// Get max mempool transaction age from config
 pub fn max_mempool_transaction_age() -> u64 {
     BlockchainConfig::global().network.max_mempool_transaction_age
 }
 
-/// Get block transaction cap (configurable via BLOCK_TX_CAP env var)
+/// Get block transaction cap from config
 pub fn block_transaction_cap() -> usize {
     BlockchainConfig::global().network.block_transaction_cap
-}
-
-impl NetworkConfig {
-    fn from_env() -> Self {
-        Self {
-            network_id: env_var("NETWORK_ID").unwrap_or_else(|| "mainnet".to_string()),
-            initial_reward: parse_env("INITIAL_REWARD").unwrap_or(50),
-            halving_interval: parse_env("HALVING_INTERVAL").unwrap_or(210),
-            ideal_block_time: parse_env("IDEAL_BLOCK_TIME").unwrap_or(10),
-            difficulty_update_interval: parse_env("DIFFICULTY_UPDATE_INTERVAL").unwrap_or(50),
-            max_mempool_transaction_age: parse_env("MAX_MEMPOOL_TX_AGE").unwrap_or(600),
-            block_transaction_cap: parse_env("BLOCK_TX_CAP").unwrap_or(20),
-            min_target_hex: env_var("MIN_TARGET_HEX")
-                .unwrap_or_else(|| "0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF".to_string()),
-        }
-    }
-}
-
-impl NodeConfig {
-    fn from_env() -> Self {
-        let initial_peers_str = env_var("INITIAL_PEERS").unwrap_or_default();
-        let initial_peers = if initial_peers_str.is_empty() {
-            vec![]
-        } else {
-            initial_peers_str.split(',').map(|s| s.trim().to_string()).collect()
-        };
-        
-        Self {
-            port: parse_env("NODE_PORT").unwrap_or(9000),
-            blockchain_file: env_var("BLOCKCHAIN_FILE").unwrap_or_else(|| "./blockchain.cbor".to_string()),
-            initial_peers,
-            mempool_cleanup_interval_secs: parse_env("MEMPOOL_CLEANUP_INTERVAL").unwrap_or(30),
-            blockchain_save_interval_secs: parse_env("BLOCKCHAIN_SAVE_INTERVAL").unwrap_or(15),
-            max_peers: parse_env("MAX_PEERS").unwrap_or(50),
-        }
-    }
-}
-
-impl MiningConfig {
-    fn from_env() -> Self {
-        Self {
-            mining_batch_size: parse_env("MINING_BATCH_SIZE").unwrap_or(2_000_000),
-            template_fetch_interval_secs: parse_env("TEMPLATE_FETCH_INTERVAL").unwrap_or(5),
-            node_address: env_var("MINER_NODE_ADDRESS").unwrap_or_else(|| "127.0.0.1:9000".to_string()),
-            public_key_file: env_var("MINER_PUBLIC_KEY").unwrap_or_else(|| "miner.pub.pem".to_string()),
-        }
-    }
-}
-
-impl WalletConfig {
-    fn from_env() -> Self {
-        Self {
-            utxo_update_interval_secs: parse_env("UTXO_UPDATE_INTERVAL").unwrap_or(20),
-            balance_display_update_interval_ms: parse_env("BALANCE_UPDATE_INTERVAL_MS").unwrap_or(500),
-            node_address: env_var("WALLET_NODE_ADDRESS").unwrap_or_else(|| "127.0.0.1:9000".to_string()),
-            config_file: env_var("WALLET_CONFIG_FILE").unwrap_or_else(|| "wallet_config.toml".to_string()),
-        }
-    }
-}
-
-/// Helper function to get environment variable
-fn env_var(key: &str) -> Option<String> {
-    std::env::var(key).ok()
-}
-
-/// Helper function to parse environment variable
-fn parse_env<T: std::str::FromStr>(key: &str) -> Option<T> {
-    env_var(key)?.parse().ok()
 }
 
 #[cfg(test)]

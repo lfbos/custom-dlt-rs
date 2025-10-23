@@ -15,15 +15,15 @@ read -p "Select network (1-3): " choice
 
 case $choice in
     1)
-        cp .env.example .env
+        cp config.default.json config.json
         echo "✅ Switched to mainnet"
         ;;
     2)
-        cp .env.testnet.example .env
+        cp config.testnet.json config.json
         echo "✅ Switched to testnet"
         ;;
     3)
-        cp .env.devnet.example .env
+        cp config.devnet.json config.json
         echo "✅ Switched to devnet"
         ;;
     *)

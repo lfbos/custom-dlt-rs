@@ -660,8 +660,18 @@ You can load configuration from a custom path programmatically:
 ```rust
 use btclib::config::BlockchainConfig;
 
-// Load from custom path
-let config = BlockchainConfig::load_from_file("path/to/my_config.json");
+// Load from custom path - returns Result
+let config = BlockchainConfig::load_from_file("path/to/my_config.json")
+    .expect("Failed to load configuration");
+
+// Or handle the error gracefully
+let config = match BlockchainConfig::load_from_file("path/to/my_config.json") {
+    Ok(cfg) => cfg,
+    Err(e) => {
+        eprintln!("Failed to load config: {}", e);
+        BlockchainConfig::default()
+    }
+};
 ```
 
 ### Conditional Configuration
