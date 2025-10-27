@@ -78,5 +78,8 @@ pub mod network;
 pub mod sha256;
 pub mod util;
 
+#[cfg(test)]
+pub mod test_helpers;
+
 #[path = "../types/mod.rs"]
 pub mod types;

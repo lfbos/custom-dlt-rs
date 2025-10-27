@@ -101,3 +101,6 @@ where
         Self::load(file)
     }
 }
+
+#[cfg(test)]
+mod tests;

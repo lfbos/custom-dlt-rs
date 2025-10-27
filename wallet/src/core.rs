@@ -317,3 +317,7 @@ impl Core {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "core_tests.rs"]
+mod tests;

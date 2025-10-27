@@ -1,25 +1,8 @@
 #[cfg(test)]
 mod transaction_tests {
     use crate::crypto::PrivateKey;
-    use crate::sha256::Hash;
-    use crate::types::{Transaction, TransactionInput, TransactionOutput};
-    use uuid::Uuid;
-
-    fn create_test_output(value: u64, private_key: &mut PrivateKey) -> TransactionOutput {
-        TransactionOutput {
-            value,
-            unique_id: Uuid::new_v4(),
-            pubkey: private_key.public_key(),
-        }
-    }
-
-    fn create_test_input(output_hash: &Hash, private_key: &mut PrivateKey) -> TransactionInput {
-        use crate::crypto::Signature;
-        TransactionInput {
-            prev_transaction_output_hash: *output_hash,
-            signature: Signature::sign_output(output_hash, private_key),
-        }
-    }
+    use crate::test_helpers::{create_test_input, create_test_output};
+    use crate::types::Transaction;
 
     #[test]
     fn test_transaction_creation() {
@@ -99,18 +82,10 @@ mod transaction_tests {
 mod block_tests {
     use crate::config;
     use crate::crypto::PrivateKey;
-    use crate::types::{Block, BlockHeader, Transaction, TransactionOutput};
+    use crate::test_helpers::create_test_output;
+    use crate::types::{Block, BlockHeader, Transaction};
     use crate::util::MerkleRoot;
     use chrono::Utc;
-    use uuid::Uuid;
-
-    fn create_test_output(value: u64, private_key: &mut PrivateKey) -> TransactionOutput {
-        TransactionOutput {
-            value,
-            unique_id: Uuid::new_v4(),
-            pubkey: private_key.public_key(),
-        }
-    }
 
     #[test]
     fn test_block_creation() {
@@ -202,19 +177,11 @@ mod block_tests {
 #[cfg(test)]
 mod blockchain_tests {
     use crate::crypto::PrivateKey;
-    use crate::types::{Block, BlockHeader, Blockchain, Transaction, TransactionOutput};
+    use crate::test_helpers::create_test_output;
+    use crate::types::{Block, BlockHeader, Blockchain, Transaction};
     use crate::util::MerkleRoot;
     use crate::{config, U256};
     use chrono::Utc;
-    use uuid::Uuid;
-
-    fn create_test_output(value: u64, private_key: &mut PrivateKey) -> TransactionOutput {
-        TransactionOutput {
-            value,
-            unique_id: Uuid::new_v4(),
-            pubkey: private_key.public_key(),
-        }
-    }
 
     #[test]
     fn test_blockchain_initialization() {
