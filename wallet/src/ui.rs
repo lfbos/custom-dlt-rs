@@ -149,7 +149,7 @@ fn switch_unit(s: &mut Cursive, unit: Arc<Mutex<Unit>>) {
         };
         *locked_unit
     };
-    
+
     // Update the UI after lock is released
     s.call_on_name("unit_display", |view: &mut TextView| {
         view.set_content(match new_unit {

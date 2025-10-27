@@ -5,6 +5,7 @@ use btclib::types::{Block, BlockHeader, Transaction, TransactionOutput};
 use btclib::util::MerkleRoot;
 use chrono::Utc;
 use tokio::net::TcpStream;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 pub async fn handle_connection(mut socket: TcpStream) {
@@ -13,7 +14,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
         let message = match Message::receive_async(&mut socket).await {
             Ok(message) => message,
             Err(e) => {
-                println!("invalid message from peer: {e}, closing that connection");
+                warn!("invalid message from peer: {e}, closing that connection");
                 return;
             }
         };
@@ -21,7 +22,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
         use btclib::network::Message::*;
         match message {
             UTXOs(_) | Template(_) | Difference(_) | TemplateValidity(_) | NodeList(_) => {
-                println!("I am neither a miner nor a wallet! Goodbye");
+                error!("I am neither a miner nor a wallet! Goodbye");
                 return;
             }
             FetchBlock(height) => {
@@ -56,7 +57,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
                 message.send_async(&mut socket).await.unwrap();
             }
             FetchUTXOs(key) => {
-                println!("received request to fetch UTXOs");
+                debug!("received request to fetch UTXOs");
                 // Collect UTXOs immediately and release lock
                 let utxos = {
                     let blockchain = crate::BLOCKCHAIN.read().await;
@@ -74,22 +75,22 @@ pub async fn handle_connection(mut socket: TcpStream) {
                 // Acquire write lock only for the blockchain operation
                 let result = {
                     let mut blockchain = crate::BLOCKCHAIN.write().await;
-                    println!("received new block");
+                    info!("received new block");
                     blockchain.add_block(block)
                 };
-                if result.is_err() {
-                    println!("block rejected");
+                if let Err(e) = result {
+                    warn!("block rejected: {}", e);
                 }
             }
             NewTransaction(tx) => {
                 // Acquire write lock only for the mempool operation
                 let result = {
                     let mut blockchain = crate::BLOCKCHAIN.write().await;
-                    println!("received transaction from friend");
+                    debug!("received transaction from friend");
                     blockchain.add_to_mempool(tx)
                 };
-                if result.is_err() {
-                    println!("transaction rejected, closing connection");
+                if let Err(e) = result {
+                    warn!("transaction rejected, closing connection: {}", e);
                     return;
                 }
             }
@@ -108,7 +109,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
                 message.send_async(&mut socket).await.unwrap();
             }
             SubmitTemplate(block) => {
-                println!("received allegedly mined template");
+                info!("received allegedly mined template");
                 // Acquire write lock only for blockchain operations, then release before network I/O
                 let block_clone = block.clone();
                 let was_accepted = {
@@ -119,17 +120,17 @@ pub async fn handle_connection(mut socket: TcpStream) {
                             true
                         }
                         Err(e) => {
-                            println!("block rejected: {e}, closing connection");
+                            warn!("block rejected: {}, closing connection", e);
                             false
                         }
                     }
                 };
-                
+
                 if !was_accepted {
                     return;
                 }
-                
-                println!("block looks good, broadcasting");
+
+                info!("block looks good, broadcasting");
                 // send block to all friend nodes - lock is now released
                 let nodes = crate::NODES
                     .iter()
@@ -139,41 +140,41 @@ pub async fn handle_connection(mut socket: TcpStream) {
                     if let Some(mut stream) = crate::NODES.get_mut(&node) {
                         let message = Message::NewBlock(block_clone.clone());
                         if message.send_async(&mut *stream).await.is_err() {
-                            println!("failed to send block to {}", node);
+                            warn!("failed to send block to {}", node);
                         }
                     }
                 }
             }
             SubmitTransaction(tx) => {
-                println!("submit tx");
+                debug!("submit tx");
                 // Acquire write lock only for mempool operation, then release before network I/O
                 let tx_clone = tx.clone();
                 let result = {
                     let mut blockchain = crate::BLOCKCHAIN.write().await;
                     blockchain.add_to_mempool(tx)
                 };
-                
+
                 if let Err(e) = result {
-                    println!("transaction rejected, closing connection: {e}");
+                    warn!("transaction rejected, closing connection: {}", e);
                     return;
                 }
-                
-                println!("added transaction to mempool");
+
+                debug!("added transaction to mempool");
                 // send transaction to all friend nodes - lock is now released
                 let nodes = crate::NODES
                     .iter()
                     .map(|x| x.key().clone())
                     .collect::<Vec<_>>();
                 for node in nodes {
-                    println!("sending to friend: {node}");
+                    debug!("sending to friend: {node}");
                     if let Some(mut stream) = crate::NODES.get_mut(&node) {
                         let message = Message::SubmitTransaction(tx_clone.clone());
                         if message.send_async(&mut *stream).await.is_err() {
-                            println!("failed to send transaction to {}", node);
+                            warn!("failed to send transaction to {}", node);
                         }
                     }
                 }
-                println!("transaction sent to friends");
+                info!("transaction sent to friends");
             }
             FetchTemplate(pubkey) => {
                 // Collect all necessary data and release lock before any expensive operations
@@ -196,7 +197,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
                     let reward = blockchain.calculate_block_reward();
                     (mempool_txs, prev_block_hash, target, utxos, reward)
                 };
-                
+
                 // Now build template without holding the lock
                 let mut transactions = vec![];
                 transactions.extend(mempool_txs);
@@ -226,7 +227,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
                 let miner_fees = match block.calculate_miner_fees(&utxos) {
                     Ok(fees) => fees,
                     Err(e) => {
-                        eprintln!("{e}");
+                        error!("failed to calculate miner fees: {}", e);
                         return;
                     }
                 };

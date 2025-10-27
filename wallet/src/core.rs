@@ -199,7 +199,7 @@ impl Core {
     ///
     /// Transaction created:
     /// Inputs: [UTXO A, UTXO B, UTXO C] = 16 BTC
-    /// Outputs: 
+    /// Outputs:
     ///   - 10 BTC → recipient
     ///   - 5.9 BTC → self (change)
     /// Fee: 0.1 BTC (implicit, goes to miner)
@@ -287,7 +287,8 @@ impl Core {
     }
 
     pub fn get_balance(&self) -> u64 {
-        let balance = self.utxos
+        let balance = self
+            .utxos
             .utxos
             .iter()
             .map(|entry| {
@@ -301,7 +302,11 @@ impl Core {
                 total_for_key
             })
             .sum();
-        debug!("Total balance: {} satoshis ({} BTC)", balance, balance as f64 / 100_000_000.0);
+        debug!(
+            "Total balance: {} satoshis ({} BTC)",
+            balance,
+            balance as f64 / 100_000_000.0
+        );
         balance
     }
 

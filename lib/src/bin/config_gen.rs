@@ -1,5 +1,5 @@
 /// Generate default configuration files
-/// 
+///
 /// This utility generates default configuration files that can be used as templates
 /// for configuring the blockchain system.
 ///
@@ -10,16 +10,18 @@
 ///   cargo run --bin config_gen                    # Generates config.default.json
 ///   cargo run --bin config_gen config.json        # Generates config.json
 ///   cargo run --bin config_gen config.testnet.json # Generate testnet config
-
 use btclib::config::BlockchainConfig;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let output_file = args.get(1).map(|s| s.as_str()).unwrap_or("config.default.json");
-    
+    let output_file = args
+        .get(1)
+        .map(|s| s.as_str())
+        .unwrap_or("config.default.json");
+
     // Generate default configuration
     let config = BlockchainConfig::default();
-    
+
     // Save to file
     match config.save_to_file(output_file) {
         Ok(_) => {
@@ -39,4 +41,3 @@ fn main() {
         }
     }
 }
-

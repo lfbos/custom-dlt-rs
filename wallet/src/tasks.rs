@@ -12,7 +12,8 @@ use tracing::*;
 pub async fn update_utxos(core: Arc<Core>) -> JoinHandle<()> {
     tokio::spawn(async move {
         let config = BlockchainConfig::global();
-        let mut interval = time::interval(Duration::from_secs(config.wallet.utxo_update_interval_secs));
+        let mut interval =
+            time::interval(Duration::from_secs(config.wallet.utxo_update_interval_secs));
         loop {
             interval.tick().await;
             if let Err(e) = core.fetch_utxos().await {
@@ -48,7 +49,10 @@ pub async fn update_balance(core: Arc<Core>, balance_content: TextContent) -> Jo
     tokio::spawn(async move {
         let config = BlockchainConfig::global();
         loop {
-            tokio::time::sleep(Duration::from_millis(config.wallet.balance_display_update_interval_ms)).await;
+            tokio::time::sleep(Duration::from_millis(
+                config.wallet.balance_display_update_interval_ms,
+            ))
+            .await;
             info!("updating balance string");
             balance_content.set_content(big_mode_btc(&core));
         }
