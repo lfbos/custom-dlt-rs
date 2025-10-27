@@ -48,7 +48,7 @@ pub fn generate_dummy_config(path: &PathBuf) -> Result<()> {
     };
     let config_str = toml::to_string_pretty(&dummy_config)?;
     std::fs::write(path, config_str)?;
-    println!("Dummy config generated at: {}", path.display());
+    debug!("Dummy config generated at: {}", path.display());
     Ok(())
 }
 
