@@ -268,6 +268,24 @@ impl Blockchain {
         // Remove transactions from mempool that are now in the block
         let block_transactions: HashSet<_> =
             block.transactions.iter().map(|tx| tx.hash()).collect();
+        
+        // Unmark UTXOs for transactions that are being removed from mempool
+        let transactions_to_remove: Vec<_> = self.mempool
+            .iter()
+            .filter(|(_, tx)| block_transactions.contains(&tx.hash()))
+            .map(|(_, tx)| tx.clone())
+            .collect();
+        
+        for tx in transactions_to_remove {
+            for input in &tx.inputs {
+                self.utxos
+                    .entry(input.prev_transaction_output_hash)
+                    .and_modify(|(marked, _)| {
+                        *marked = false;
+                    });
+            }
+        }
+        
         self.mempool
             .retain(|(_, tx)| !block_transactions.contains(&tx.hash()));
         self.blocks.push(block);
@@ -361,12 +379,23 @@ impl Blockchain {
         // ============================
         // Prevent extreme difficulty swings by limiting adjustment to 4x in either direction
         // This prevents a single adjustment from making mining impossibly hard or trivially easy
-        let new_target = if new_target < self.target / 4 {
+        // We use division by shifting to avoid overflow issues
+        let target_half = self.target / U256::from(2);
+        let target_quarter = if target_half > U256::from(0) {
+            target_half / U256::from(2)
+        } else {
+            U256::from(1) // Minimum target
+        };
+        
+        // Calculate max target (4x easier) safely
+        let max_new_target = self.target * U256::from(2) * U256::from(2);
+        
+        let new_target = if new_target < target_quarter {
             // Don't make it more than 4x harder
-            self.target / 4
-        } else if new_target > self.target * 4 {
+            target_quarter
+        } else if new_target > max_new_target {
             // Don't make it more than 4x easier
-            self.target * 4
+            max_new_target
         } else {
             new_target
         };

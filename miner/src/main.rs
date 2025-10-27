@@ -73,7 +73,13 @@ impl Miner {
         thread::spawn(move || {
             loop {
                 if mining.load(Ordering::Relaxed) {
-                    if let Some(mut block) = template.lock().unwrap().clone() {
+                    // Release the lock immediately after cloning
+                    let block = template
+                        .lock()
+                        .expect("Template mutex lock poisoned - thread panicked while holding lock")
+                        .clone();
+                    
+                    if let Some(mut block) = block {
                         println!("Mining block with target: {}", block.header.target);
                         if block.header.mine(config.mining.mining_batch_size) {
                             println!("Block mined: {}", block.hash());
@@ -110,7 +116,10 @@ impl Miner {
                     "Received new template with target: {}",
                     template.header.target
                 );
-                *self.current_template.lock().unwrap() = Some(template);
+                *self.current_template
+                    .lock()
+                    .expect("Template mutex lock poisoned - thread panicked while holding lock") =
+                    Some(template);
                 self.mining.store(true, Ordering::Relaxed);
                 Ok(())
             }
@@ -121,7 +130,13 @@ impl Miner {
     }
 
     async fn validate_template(&self) -> Result<()> {
-        if let Some(template) = self.current_template.lock().unwrap().clone() {
+        // Release the lock immediately after cloning
+        let template = self.current_template
+            .lock()
+            .expect("Template mutex lock poisoned - thread panicked while holding lock")
+            .clone();
+        
+        if let Some(template) = template {
             let message = Message::ValidateTemplate(template);
             let mut stream_lock = self.stream.lock().await;
             message.send_async(&mut *stream_lock).await?;

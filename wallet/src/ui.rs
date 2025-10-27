@@ -103,7 +103,13 @@ fn show_send_transaction(s: &mut Cursive, core: Arc<Core>) {
         Dialog::around(create_transaction_layout(unit.clone()))
             .title("Send Transaction")
             .button("Send", move |siv| {
-                send_transaction(siv, core.clone(), *unit.lock().unwrap())
+                send_transaction(
+                    siv,
+                    core.clone(),
+                    *unit
+                        .lock()
+                        .expect("Unit mutex lock poisoned - thread panicked while holding lock"),
+                )
             })
             .button("Cancel", |siv| {
                 debug!("Transaction cancelled");
@@ -132,13 +138,21 @@ fn create_unit_layout(unit: Arc<Mutex<Unit>>) -> LinearLayout {
 
 /// Switch the transaction unit between BTC and Sats.
 fn switch_unit(s: &mut Cursive, unit: Arc<Mutex<Unit>>) {
-    let mut unit = unit.lock().unwrap();
-    *unit = match *unit {
-        Unit::Btc => Unit::Sats,
-        Unit::Sats => Unit::Btc,
+    // Update the unit value, release lock immediately
+    let new_unit = {
+        let mut locked_unit = unit
+            .lock()
+            .expect("Unit mutex lock poisoned - thread panicked while holding lock");
+        *locked_unit = match *locked_unit {
+            Unit::Btc => Unit::Sats,
+            Unit::Sats => Unit::Btc,
+        };
+        *locked_unit
     };
+    
+    // Update the UI after lock is released
     s.call_on_name("unit_display", |view: &mut TextView| {
-        view.set_content(match *unit {
+        view.set_content(match new_unit {
             Unit::Btc => "BTC",
             Unit::Sats => "Sats",
         });
