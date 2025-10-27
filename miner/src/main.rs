@@ -8,7 +8,9 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use btclib::{config::BlockchainConfig, crypto::PublicKey, network::Message, types::Block, util::Saveable};
+use btclib::{
+    config::BlockchainConfig, crypto::PublicKey, network::Message, types::Block, util::Saveable,
+};
 use clap::Parser;
 use tokio::{net::TcpStream, sync::Mutex, time::interval};
 use tracing::{debug, info, warn};
@@ -19,7 +21,7 @@ struct Cli {
     #[arg(short, long)]
     /// Node address to connect to (defaults to MINER_NODE_ADDRESS env var)
     address: Option<String>,
-    
+
     #[arg(short, long)]
     /// Public key file for receiving rewards (defaults to MINER_PUBLIC_KEY env var)
     public_key_file: Option<String>,
@@ -51,7 +53,9 @@ impl Miner {
     async fn run(&self) -> Result<()> {
         let config = BlockchainConfig::global();
         self.spawn_mining_thread();
-        let mut template_interval = interval(Duration::from_secs(config.mining.template_fetch_interval_secs));
+        let mut template_interval = interval(Duration::from_secs(
+            config.mining.template_fetch_interval_secs,
+        ));
 
         loop {
             let receiver_clone = self.mined_block_receiver.clone();
@@ -79,7 +83,7 @@ impl Miner {
                         .lock()
                         .expect("Template mutex lock poisoned - thread panicked while holding lock")
                         .clone();
-                    
+
                     if let Some(mut block) = block {
                         debug!("Mining block with target: {}", block.header.target);
                         if block.header.mine(config.mining.mining_batch_size) {
@@ -117,7 +121,8 @@ impl Miner {
                     "Received new template with target: {}",
                     template.header.target
                 );
-                *self.current_template
+                *self
+                    .current_template
                     .lock()
                     .expect("Template mutex lock poisoned - thread panicked while holding lock") =
                     Some(template);
@@ -132,11 +137,12 @@ impl Miner {
 
     async fn validate_template(&self) -> Result<()> {
         // Release the lock immediately after cloning
-        let template = self.current_template
+        let template = self
+            .current_template
             .lock()
             .expect("Template mutex lock poisoned - thread panicked while holding lock")
             .clone();
-        
+
         if let Some(template) = template {
             let message = Message::ValidateTemplate(template);
             let mut stream_lock = self.stream.lock().await;
@@ -177,21 +183,25 @@ impl Miner {
 async fn main() -> Result<()> {
     // Load configuration
     let config = BlockchainConfig::global();
-    
+
     let cli = Cli::parse();
-    
+
     // Priority: CLI args > Environment vars > Defaults
-    let address = cli.address.unwrap_or_else(|| config.mining.node_address.clone());
-    let public_key_file = cli.public_key_file.unwrap_or_else(|| config.mining.public_key_file.clone());
-    
+    let address = cli
+        .address
+        .unwrap_or_else(|| config.mining.node_address.clone());
+    let public_key_file = cli
+        .public_key_file
+        .unwrap_or_else(|| config.mining.public_key_file.clone());
+
     // Initialize tracing
     tracing_subscriber::fmt::init();
-    
+
     info!("⛏️  Starting miner");
     info!("Network: {}", config.network.network_id);
     info!("Connecting to node: {}", address);
     info!("Rewards will be sent to key: {}", public_key_file);
-    
+
     let public_key = PublicKey::load_from_file(&public_key_file)
         .map_err(|e| anyhow!("Error reading public key: {}", e))?;
     let miner = Miner::new(address, public_key).await?;

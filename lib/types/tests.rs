@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod transaction_tests {
-    use crate::types::{Transaction, TransactionInput, TransactionOutput};
     use crate::crypto::PrivateKey;
     use crate::sha256::Hash;
+    use crate::types::{Transaction, TransactionInput, TransactionOutput};
     use uuid::Uuid;
 
     fn create_test_output(value: u64, private_key: &mut PrivateKey) -> TransactionOutput {
@@ -27,10 +27,7 @@ mod transaction_tests {
         let output = create_test_output(1000, &mut private_key);
         let output_hash = output.hash();
 
-        let transaction = Transaction::new(
-            vec![],
-            vec![output.clone()],
-        );
+        let transaction = Transaction::new(vec![], vec![output.clone()]);
 
         assert_eq!(transaction.outputs.len(), 1);
         assert_eq!(transaction.outputs[0].value, 1000);
@@ -47,7 +44,7 @@ mod transaction_tests {
         // Same transaction should produce same hash
         assert_eq!(tx.hash(), tx.hash());
     }
-    
+
     #[test]
     fn test_transaction_different_hashes() {
         let mut private_key = PrivateKey::new_key();
@@ -90,10 +87,8 @@ mod transaction_tests {
 
         let input = create_test_input(&output_hash, &mut private_key);
 
-        let transaction = Transaction::new(
-            vec![input],
-            vec![create_test_output(800, &mut private_key)],
-        );
+        let transaction =
+            Transaction::new(vec![input], vec![create_test_output(800, &mut private_key)]);
 
         assert_eq!(transaction.inputs.len(), 1);
         assert_eq!(transaction.outputs.len(), 1);
@@ -102,13 +97,13 @@ mod transaction_tests {
 
 #[cfg(test)]
 mod block_tests {
-    use crate::types::{Block, BlockHeader, Transaction, TransactionOutput};
+    use crate::config;
     use crate::crypto::PrivateKey;
+    use crate::types::{Block, BlockHeader, Transaction, TransactionOutput};
     use crate::util::MerkleRoot;
     use chrono::Utc;
-    use crate::config;
     use uuid::Uuid;
-    
+
     fn create_test_output(value: u64, private_key: &mut PrivateKey) -> TransactionOutput {
         TransactionOutput {
             value,
@@ -193,7 +188,7 @@ mod block_tests {
 
         let header2 = BlockHeader::new(
             Utc::now(),
-            1,  // Different nonce
+            1, // Different nonce
             crate::sha256::Hash::zero(),
             MerkleRoot::calculate(&vec![transaction.clone()]),
             config::min_target(),
@@ -206,8 +201,8 @@ mod block_tests {
 
 #[cfg(test)]
 mod blockchain_tests {
-    use crate::types::{Blockchain, Block, BlockHeader, Transaction, TransactionOutput};
     use crate::crypto::PrivateKey;
+    use crate::types::{Block, BlockHeader, Blockchain, Transaction, TransactionOutput};
     use crate::util::MerkleRoot;
     use crate::{config, U256};
     use chrono::Utc;
@@ -224,7 +219,7 @@ mod blockchain_tests {
     #[test]
     fn test_blockchain_initialization() {
         let blockchain = Blockchain::new();
-        
+
         assert_eq!(blockchain.blocks().count(), 0);
         assert_eq!(blockchain.utxos().len(), 0);
         assert_eq!(blockchain.block_height(), 0);
@@ -234,10 +229,10 @@ mod blockchain_tests {
     fn test_blockchain_add_genesis_block() {
         let mut blockchain = Blockchain::new();
         let mut private_key = PrivateKey::new_key();
-        
+
         let output = create_test_output(config::initial_reward() * 100_000_000, &mut private_key);
         let transaction = Transaction::new(vec![], vec![output]);
-        
+
         let block = Block::new(
             BlockHeader::new(
                 Utc::now(),
@@ -257,11 +252,11 @@ mod blockchain_tests {
     #[test]
     fn test_calculate_block_reward() {
         let blockchain = Blockchain::new();
-        
+
         // At height 0, reward should be initial_reward
         blockchain.calculate_block_reward();
         assert_eq!(blockchain.block_height(), 0);
-        
+
         // Test that reward calculation exists
         let reward = blockchain.calculate_block_reward();
         assert!(reward > 0);
@@ -271,9 +266,8 @@ mod blockchain_tests {
     fn test_blockchain_target() {
         let blockchain = Blockchain::new();
         let target = blockchain.target();
-        
+
         // Target should not be zero
         assert_ne!(target, U256::from(0));
     }
 }
-

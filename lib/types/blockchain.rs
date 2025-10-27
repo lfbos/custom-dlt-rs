@@ -95,11 +95,15 @@ impl Blockchain {
         for input in &transaction.inputs {
             // Check UTXO exists in our set
             if !self.utxos.contains_key(&input.prev_transaction_output_hash) {
-                return Err(BtcError::InvalidTransaction { reason: "UTXO not found".into() });
+                return Err(BtcError::InvalidTransaction {
+                    reason: "UTXO not found".into(),
+                });
             }
             // Check this input isn't duplicated
             if known_inputs.contains(&input.prev_transaction_output_hash) {
-                return Err(BtcError::InvalidTransaction { reason: "duplicate input".into() });
+                return Err(BtcError::InvalidTransaction {
+                    reason: "duplicate input".into(),
+                });
             }
             known_inputs.insert(input.prev_transaction_output_hash);
         }
@@ -177,7 +181,9 @@ impl Blockchain {
             .sum::<u64>();
 
         if all_inputs < all_outputs {
-            return Err(BtcError::InvalidTransaction { reason: "outputs exceed inputs".into() });
+            return Err(BtcError::InvalidTransaction {
+                reason: "outputs exceed inputs".into(),
+            });
         }
 
         // STEP 4: Mark UTXOs as reserved by this transaction
@@ -234,7 +240,9 @@ impl Blockchain {
             // block's prev_block_hash is all zeroes
             if block.header.prev_block_hash != Hash::zero() {
                 warn!("Block rejected: genesis block hash must be zero");
-                return Err(BtcError::InvalidBlock { reason: "genesis block hash must be zero".into() });
+                return Err(BtcError::InvalidBlock {
+                    reason: "genesis block hash must be zero".into(),
+                });
             }
         } else {
             // if this is not the first block, check if the
@@ -242,12 +250,16 @@ impl Blockchain {
             let last_block = self.blocks.last().unwrap();
             if block.header.prev_block_hash != last_block.hash() {
                 warn!("Block rejected: prev_block_hash doesn't match last block");
-                return Err(BtcError::InvalidBlock { reason: "prev block hash mismatch".into() });
+                return Err(BtcError::InvalidBlock {
+                    reason: "prev block hash mismatch".into(),
+                });
             }
             // check if the block's hash is less than the target
             if !block.header.hash().matches_target(block.header.target) {
                 warn!("Block rejected: hash doesn't match target");
-                return Err(BtcError::InvalidBlock { reason: "hash doesn't match target".into() });
+                return Err(BtcError::InvalidBlock {
+                    reason: "hash doesn't match target".into(),
+                });
             }
 
             // check if the block's merkle root is correct
@@ -260,7 +272,9 @@ impl Blockchain {
             // check if the block's timestamp is after the
             // last block's timestamp
             if block.header.timestamp <= last_block.header.timestamp {
-                return Err(BtcError::InvalidBlock { reason: "timestamp not after previous".into() });
+                return Err(BtcError::InvalidBlock {
+                    reason: "timestamp not after previous".into(),
+                });
             }
             // Verify all transactions in the block
             block.verify_transactions(self.block_height(), &self.utxos)?;
@@ -268,14 +282,15 @@ impl Blockchain {
         // Remove transactions from mempool that are now in the block
         let block_transactions: HashSet<_> =
             block.transactions.iter().map(|tx| tx.hash()).collect();
-        
+
         // Unmark UTXOs for transactions that are being removed from mempool
-        let transactions_to_remove: Vec<_> = self.mempool
+        let transactions_to_remove: Vec<_> = self
+            .mempool
             .iter()
             .filter(|(_, tx)| block_transactions.contains(&tx.hash()))
             .map(|(_, tx)| tx.clone())
             .collect();
-        
+
         for tx in transactions_to_remove {
             for input in &tx.inputs {
                 self.utxos
@@ -285,7 +300,7 @@ impl Blockchain {
                     });
             }
         }
-        
+
         self.mempool
             .retain(|(_, tx)| !block_transactions.contains(&tx.hash()));
         self.blocks.push(block);
@@ -340,10 +355,10 @@ impl Blockchain {
         let start_time = self.blocks[self.blocks.len() - difficulty_interval]
             .header
             .timestamp;
-        
+
         // Get the timestamp of the most recent block
         let end_time = self.blocks.last().unwrap().header.timestamp;
-        
+
         // Calculate the actual time difference
         let time_diff = end_time - start_time;
         let time_diff_seconds = time_diff.num_seconds();
@@ -386,10 +401,10 @@ impl Blockchain {
         } else {
             U256::from(1) // Minimum target
         };
-        
+
         // Calculate max target (4x easier) safely
         let max_new_target = self.target * U256::from(2) * U256::from(2);
-        
+
         let new_target = if new_target < target_quarter {
             // Don't make it more than 4x harder
             target_quarter
