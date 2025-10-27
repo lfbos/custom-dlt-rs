@@ -287,11 +287,22 @@ impl Core {
     }
 
     pub fn get_balance(&self) -> u64 {
-        self.utxos
+        let balance = self.utxos
             .utxos
             .iter()
-            .map(|entry| entry.value().iter().map(|utxo| utxo.1.value).sum::<u64>())
-            .sum()
+            .map(|entry| {
+                let total_for_key = entry
+                    .value()
+                    .iter()
+                    .filter(|(marked, _)| !*marked) // Exclude marked UTXOs (already being spent)
+                    .map(|(_, utxo)| utxo.value)
+                    .sum::<u64>();
+                debug!("Balance for key: {} satoshis", total_for_key);
+                total_for_key
+            })
+            .sum();
+        debug!("Total balance: {} satoshis ({} BTC)", balance, balance as f64 / 100_000_000.0);
+        balance
     }
 
     fn calculate_fee(&self, amount: u64) -> u64 {
