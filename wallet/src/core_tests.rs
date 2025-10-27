@@ -14,7 +14,7 @@ mod core_tests {
     #[test]
     fn test_calculate_fee_fixed() {
         let config = create_test_config(FeeType::Fixed, 100.0);
-        
+
         // Calculate fee like the actual implementation
         let fee = match config.fee_config.fee_type {
             FeeType::Fixed => config.fee_config.value as u64,
@@ -27,7 +27,7 @@ mod core_tests {
     #[test]
     fn test_calculate_fee_percent_small_amount() {
         let config = create_test_config(FeeType::Percent, 1.0);
-        
+
         let amount = 1000u64;
         let fee = match config.fee_config.fee_type {
             FeeType::Fixed => config.fee_config.value as u64,
@@ -40,7 +40,7 @@ mod core_tests {
     #[test]
     fn test_calculate_fee_percent_large_amount() {
         let config = create_test_config(FeeType::Percent, 2.5);
-        
+
         let amount = 100_000_000u64; // 1 BTC
         let fee = match config.fee_config.fee_type {
             FeeType::Fixed => config.fee_config.value as u64,
@@ -53,7 +53,7 @@ mod core_tests {
     #[test]
     fn test_calculate_fee_percent_minimal_amount() {
         let config = create_test_config(FeeType::Percent, 0.1);
-        
+
         let amount = 100u64;
         let fee = match config.fee_config.fee_type {
             FeeType::Fixed => config.fee_config.value as u64,
@@ -63,4 +63,3 @@ mod core_tests {
         assert_eq!(fee, 0); // 0.1% of 100 = 0.1, rounds down to 0
     }
 }
-
