@@ -7,11 +7,13 @@ authors = ["Luis Boscan"]
 description = "Full node implementation for educational blockchain"
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow = { version = "1.0.100", features = ["backtrace"] }
 btclib = { version = "0.1.0", path = "../lib" }
 argh = "0.1.13"
 chrono = "0.4.42"
 dashmap = "6.1.0"
 static_init = "1.0.4"
 tokio = { version = "1.47.1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
 uuid = { version = "1.18.1", features = ["v4"] }

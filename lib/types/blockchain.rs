@@ -8,6 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult, Write};
+use tracing::warn;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
@@ -94,11 +95,11 @@ impl Blockchain {
         for input in &transaction.inputs {
             // Check UTXO exists in our set
             if !self.utxos.contains_key(&input.prev_transaction_output_hash) {
-                return Err(BtcError::InvalidTransaction);
+                return Err(BtcError::InvalidTransaction { reason: "UTXO not found".into() });
             }
             // Check this input isn't duplicated
             if known_inputs.contains(&input.prev_transaction_output_hash) {
-                return Err(BtcError::InvalidTransaction);
+                return Err(BtcError::InvalidTransaction { reason: "duplicate input".into() });
             }
             known_inputs.insert(input.prev_transaction_output_hash);
         }
@@ -176,8 +177,7 @@ impl Blockchain {
             .sum::<u64>();
 
         if all_inputs < all_outputs {
-            print!("inputs are lower than outputs");
-            return Err(BtcError::InvalidTransaction);
+            return Err(BtcError::InvalidTransaction { reason: "outputs exceed inputs".into() });
         }
 
         // STEP 4: Mark UTXOs as reserved by this transaction
@@ -233,34 +233,34 @@ impl Blockchain {
             // if this is the first block, check if the
             // block's prev_block_hash is all zeroes
             if block.header.prev_block_hash != Hash::zero() {
-                println!("zero hash");
-                return Err(BtcError::InvalidBlock);
+                warn!("Block rejected: genesis block hash must be zero");
+                return Err(BtcError::InvalidBlock { reason: "genesis block hash must be zero".into() });
             }
         } else {
             // if this is not the first block, check if the
             // block's prev_block_hash is the hash of the last block
             let last_block = self.blocks.last().unwrap();
             if block.header.prev_block_hash != last_block.hash() {
-                println!("prev hash is wrong");
-                return Err(BtcError::InvalidBlock);
+                warn!("Block rejected: prev_block_hash doesn't match last block");
+                return Err(BtcError::InvalidBlock { reason: "prev block hash mismatch".into() });
             }
             // check if the block's hash is less than the target
             if !block.header.hash().matches_target(block.header.target) {
-                println!("does not match target");
-                return Err(BtcError::InvalidBlock);
+                warn!("Block rejected: hash doesn't match target");
+                return Err(BtcError::InvalidBlock { reason: "hash doesn't match target".into() });
             }
 
             // check if the block's merkle root is correct
             let calculated_merkle_root = MerkleRoot::calculate(&block.transactions);
             if calculated_merkle_root != block.header.merkle_root {
-                println!("invalid merkle root");
+                warn!("Block rejected: calculated Merkle root doesn't match");
                 return Err(BtcError::InvalidMerkleRoot);
             }
 
             // check if the block's timestamp is after the
             // last block's timestamp
             if block.header.timestamp <= last_block.header.timestamp {
-                return Err(BtcError::InvalidBlock);
+                return Err(BtcError::InvalidBlock { reason: "timestamp not after previous".into() });
             }
             // Verify all transactions in the block
             block.verify_transactions(self.block_height(), &self.utxos)?;

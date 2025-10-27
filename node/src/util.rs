@@ -5,44 +5,50 @@ use btclib::types::Blockchain;
 use btclib::util::Saveable;
 use tokio::net::TcpStream;
 use tokio::time;
+use tracing::info;
+
+pub fn init_tracing() {
+    tracing_subscriber::fmt::init();
+}
 
 pub async fn load_blockchain(blockchain_file: &str) -> Result<()> {
-    println!("blockchain file exists, loading...");
-    let new_blockchain = Blockchain::load_from_file(blockchain_file)?;
-    println!("blockchain loaded");
+    info!("blockchain file exists, loading...");
+    let new_blockchain = Blockchain::load_from_file(blockchain_file)
+        .context("Failed to load blockchain from file")?;
+    info!("blockchain loaded");
     let mut blockchain = crate::BLOCKCHAIN.write().await;
     *blockchain = new_blockchain;
-    println!("rebuilding utxos...");
+    info!("rebuilding utxos...");
     blockchain.rebuild_utxos();
-    println!("utxos rebuilt");
-    println!("checking if target needs to be adjusted...");
-    println!("current target: {}", blockchain.target());
+    info!("utxos rebuilt");
+    info!("checking if target needs to be adjusted...");
+    info!("current target: {}", blockchain.target());
     blockchain.try_adjust_target();
-    println!("new target: {}", blockchain.target());
-    println!("initialization complete");
+    info!("new target: {}", blockchain.target());
+    info!("initialization complete");
     Ok(())
 }
 
 pub async fn populate_connections(nodes: &[String]) -> Result<()> {
-    println!("trying to connect to other nodes...");
+    info!("trying to connect to other nodes...");
     for node in nodes {
         let mut stream = TcpStream::connect(&node).await?;
         let message = Message::DiscoverNodes;
         message.send_async(&mut stream).await?;
-        println!("sent DiscoverNodes to {}", node);
+        info!("sent DiscoverNodes to {}", node);
         let message = Message::receive_async(&mut stream).await?;
 
         match message {
             Message::NodeList(child_nodes) => {
-                println!("received NodeList from {}", node);
+                info!("received NodeList from {}", node);
                 for child_node in child_nodes {
-                    println!("adding node {}", child_node);
+                    info!("adding node {}", child_node);
                     let new_stream = TcpStream::connect(&child_node).await?;
                     crate::NODES.insert(child_node, new_stream);
                 }
             }
             _ => {
-                println!("unexpected message from {}", node);
+                info!("unexpected message from {}", node);
             }
         }
         crate::NODES.insert(node.clone(), stream);
@@ -51,7 +57,7 @@ pub async fn populate_connections(nodes: &[String]) -> Result<()> {
 }
 
 pub async fn find_longest_chain_node() -> Result<(String, u32)> {
-    println!("finding nodes with the highest blockchain length...");
+    info!("finding nodes with the highest blockchain length...");
     let mut longest_name = String::new();
     let mut longest_count = 0;
     let all_nodes = crate::NODES
@@ -59,24 +65,24 @@ pub async fn find_longest_chain_node() -> Result<(String, u32)> {
         .map(|x| x.key().clone())
         .collect::<Vec<_>>();
     for node in all_nodes {
-        println!("asking {} for blockchain length", node);
+        info!("asking {} for blockchain length", node);
         let mut stream = crate::NODES.get_mut(&node).context("no node")?;
         let message = Message::AskDifference(0);
         message.send_async(&mut *stream).await.unwrap();
-        println!("sent AskDifference to {}", node);
+        info!("sent AskDifference to {}", node);
         let message = Message::receive_async(&mut *stream).await?;
 
         match message {
             Message::Difference(count) => {
-                println!("received Difference from {}", node);
+                info!("received Difference from {}", node);
                 if count > longest_count {
-                    println!("new longest blockchain: {} blocks from {node}", count);
+                    info!("new longest blockchain: {} blocks from {node}", count);
                     longest_count = count;
                     longest_name = node;
                 }
             }
             e => {
-                println!("unexpected message from {}: {:?}", node, e);
+                info!("unexpected message from {}: {:?}", node, e);
             }
         }
     }
@@ -95,7 +101,7 @@ pub async fn download_blockchain(node: &str, count: u32) -> Result<()> {
                 blockchain.add_block(block)?;
             }
             _ => {
-                println!("unexpected message from {}", node);
+                info!("unexpected message from {}", node);
             }
         }
     }
@@ -104,10 +110,12 @@ pub async fn download_blockchain(node: &str, count: u32) -> Result<()> {
 
 pub async fn cleanup() {
     let config = BlockchainConfig::global();
-    let mut interval = time::interval(time::Duration::from_secs(config.node.mempool_cleanup_interval_secs));
+    let mut interval = time::interval(time::Duration::from_secs(
+        config.node.mempool_cleanup_interval_secs,
+    ));
     loop {
         interval.tick().await;
-        println!("cleaning the mempool from old transactions");
+        info!("cleaning the mempool from old transactions");
         let mut blockchain = crate::BLOCKCHAIN.write().await;
         blockchain.cleanup_mempool();
     }
@@ -115,10 +123,12 @@ pub async fn cleanup() {
 
 pub async fn save(name: String) {
     let config = BlockchainConfig::global();
-    let mut interval = time::interval(time::Duration::from_secs(config.node.blockchain_save_interval_secs));
+    let mut interval = time::interval(time::Duration::from_secs(
+        config.node.blockchain_save_interval_secs,
+    ));
     loop {
         interval.tick().await;
-        println!("saving blockchain to drive...");
+        info!("saving blockchain to drive...");
         let blockchain = crate::BLOCKCHAIN.read().await;
         blockchain.save_to_file(name.clone()).unwrap();
     }

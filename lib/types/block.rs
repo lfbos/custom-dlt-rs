@@ -34,7 +34,9 @@ impl Block {
         let mut inputs: HashMap<Hash, TransactionInput> = HashMap::new();
         // reject completely empty blocks
         if self.transactions.is_empty() {
-            return Err(BtcError::InvalidTransaction);
+            return Err(BtcError::InvalidTransaction {
+                reason: "block is empty".into(),
+            });
         }
 
         // verify coinbase transaction
@@ -48,12 +50,19 @@ impl Block {
                     .get(&input.prev_transaction_output_hash)
                     .map(|(_, output)| output);
                 if prev_output.is_none() {
-                    return Err(BtcError::InvalidTransaction);
+                    return Err(BtcError::InvalidTransaction {
+                        reason: format!(
+                            "input references non-existent UTXO: {:?}",
+                            input.prev_transaction_output_hash
+                        ),
+                    });
                 }
                 let prev_output = prev_output.unwrap();
                 // prevent same-block double-spending
                 if inputs.contains_key(&input.prev_transaction_output_hash) {
-                    return Err(BtcError::InvalidTransaction);
+                    return Err(BtcError::InvalidTransaction {
+                        reason: "double-spend detected within same block".into(),
+                    });
                 }
                 // check if the signature is valid
                 if !input
@@ -71,7 +80,12 @@ impl Block {
             // It is fine for output value to be less than input value
             // as the difference is the fee for the miner
             if input_value < output_value {
-                return Err(BtcError::InvalidTransaction);
+                return Err(BtcError::InvalidTransaction {
+                    reason: format!(
+                        "output value {} exceeds input value {}",
+                        output_value, input_value
+                    ),
+                });
             }
         }
         Ok(())
@@ -85,10 +99,14 @@ impl Block {
         // coinbase tx is the first transaction in the block
         let coinbase_transaction = &self.transactions[0];
         if coinbase_transaction.inputs.len() != 0 {
-            return Err(BtcError::InvalidTransaction);
+            return Err(BtcError::InvalidTransaction {
+                reason: "coinbase transaction cannot have inputs".into(),
+            });
         }
         if coinbase_transaction.outputs.len() == 0 {
-            return Err(BtcError::InvalidTransaction);
+            return Err(BtcError::InvalidTransaction {
+                reason: "coinbase transaction has no outputs".into(),
+            });
         }
         let miner_fees = self.calculate_miner_fees(utxos)?;
         let block_reward = config::initial_reward() * 10u64.pow(8)
@@ -99,7 +117,12 @@ impl Block {
             .map(|output| output.value)
             .sum();
         if total_coinbase_outputs != block_reward + miner_fees {
-            return Err(BtcError::InvalidTransaction);
+            return Err(BtcError::InvalidTransaction {
+                reason: format!(
+                    "coinbase output value {} doesn't match reward {} + fees {}",
+                    total_coinbase_outputs, block_reward, miner_fees
+                ),
+            });
         }
         Ok(())
     }
@@ -122,18 +145,27 @@ impl Block {
                     .map(|(_, output)| output);
 
                 if prev_output.is_none() {
-                    return Err(BtcError::InvalidTransaction);
+                    return Err(BtcError::InvalidTransaction {
+                        reason: format!(
+                            "input references non-existent UTXO in fee calculation: {:?}",
+                            input.prev_transaction_output_hash
+                        ),
+                    });
                 }
                 let prev_output = prev_output.unwrap();
                 if inputs.contains_key(&input.prev_transaction_output_hash) {
-                    return Err(BtcError::InvalidTransaction);
+                    return Err(BtcError::InvalidTransaction {
+                        reason: "duplicate input in fee calculation".into(),
+                    });
                 }
                 inputs.insert(input.prev_transaction_output_hash, prev_output.clone());
             }
 
             for output in &transaction.outputs {
                 if outputs.contains_key(&output.hash()) {
-                    return Err(BtcError::InvalidTransaction);
+                    return Err(BtcError::InvalidTransaction {
+                        reason: "duplicate output detected".into(),
+                    });
                 }
                 outputs.insert(output.hash(), output.clone());
             }

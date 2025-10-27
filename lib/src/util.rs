@@ -62,20 +62,20 @@ impl MerkleRoot {
         // Keep combining pairs of hashes until only one remains
         while layer.len() > 1 {
             let mut new_layer = vec![];
-            
+
             // Process hashes in pairs
             for pair in layer.chunks(2) {
                 let left = pair[0];
-                
+
                 // If there's an odd number, duplicate the last hash
                 // Example: [A, B, C] becomes pairs [(A,B), (C,C)]
                 let right = pair.get(1).unwrap_or(&pair[0]);
-                
+
                 // Combine the pair by hashing them together
                 // H(left || right) where || means concatenation
                 new_layer.push(Hash::hash(&[left, *right]));
             }
-            
+
             // Move up one level in the tree
             layer = new_layer;
         }

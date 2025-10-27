@@ -7,6 +7,7 @@ use static_init::dynamic;
 use std::path::Path;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
+use tracing::{info, warn};
 
 mod handler;
 mod util;
@@ -33,45 +34,49 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize tracing
+    util::init_tracing();
+
     // Load configuration from environment
     let config = BlockchainConfig::global();
-    
+
     // Parse command line arguments
     let args: Args = argh::from_env();
-    
+
     // Priority: CLI args > Environment vars > Defaults
     let port = args.port.unwrap_or(config.node.port);
-    let blockchain_file = args.blockchain_file
+    let blockchain_file = args
+        .blockchain_file
         .unwrap_or_else(|| config.node.blockchain_file.clone());
-    
+
     // Combine CLI nodes with env var nodes
     let mut nodes = args.nodes;
     if nodes.is_empty() {
         nodes = config.node.initial_peers.clone();
     }
-    
-    println!("🚀 Starting blockchain node");
-    println!("Network: {}", config.network.network_id);
-    println!("Port: {}", port);
-    println!("Blockchain file: {}", blockchain_file);
+
+    info!("🚀 Starting blockchain node");
+    info!("Network: {}", config.network.network_id);
+    info!("Port: {}", port);
+    info!("Blockchain file: {}", blockchain_file);
     if !nodes.is_empty() {
-        println!("Initial peers: {:?}", nodes);
+        info!("Initial peers: {:?}", nodes);
     }
 
     // Check if the blockchain_file exists
     if Path::new(&blockchain_file).exists() {
         util::load_blockchain(&blockchain_file).await?;
     } else {
-        println!("blockchain file does not exist!");
+        warn!("blockchain file does not exist!");
         util::populate_connections(&nodes).await?;
-        println!("total amount of known nodes: {}", NODES.len());
+        info!("total amount of known nodes: {}", NODES.len());
         if nodes.is_empty() {
-            println!("no initial nodes provided, starting as a seed node");
+            info!("no initial nodes provided, starting as a seed node");
         } else {
             let (longest_name, longest_count) = util::find_longest_chain_node().await?;
             // request the blockchain from the node with the longest blockchain
             util::download_blockchain(&longest_name, longest_count).await?;
-            println!("blockchain downloaded from {}", longest_name);
+            info!("blockchain downloaded from {}", longest_name);
             // recalculate utxos
             {
                 let mut blockchain = BLOCKCHAIN.write().await;
@@ -88,7 +93,7 @@ async fn main() -> Result<()> {
     // Start the TCP listener on 0.0.0.0:port
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await?;
-    println!("Listening on {}", addr);
+    info!("Listening on {}", addr);
 
     // start a task to periodically cleanup the mempool
     // normally, you would want to keep and join the handle

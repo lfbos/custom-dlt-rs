@@ -8,7 +8,6 @@
 /// Configuration priority:
 /// 1. JSON config file (config.json)
 /// 2. Hardcoded defaults (fallback)
-
 use crate::U256;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -25,13 +24,13 @@ static CONFIG: OnceLock<BlockchainConfig> = OnceLock::new();
 pub struct BlockchainConfig {
     /// Network configuration (consensus rules)
     pub network: NetworkConfig,
-    
+
     /// Node-specific settings
     pub node: NodeConfig,
-    
+
     /// Mining parameters
     pub mining: MiningConfig,
-    
+
     /// Wallet settings
     pub wallet: WalletConfig,
 }
@@ -41,25 +40,25 @@ pub struct BlockchainConfig {
 pub struct NetworkConfig {
     /// Network identifier (mainnet, testnet, devnet)
     pub network_id: String,
-    
+
     /// Initial block reward in whole coins (multiplied by 10^8 for satoshis)
     pub initial_reward: u64,
-    
+
     /// Number of blocks between reward halvings
     pub halving_interval: u64,
-    
+
     /// Target time between blocks in seconds
     pub ideal_block_time: u64,
-    
+
     /// Number of blocks between difficulty adjustments
     pub difficulty_update_interval: u64,
-    
+
     /// Maximum age of mempool transactions in seconds
     pub max_mempool_transaction_age: u64,
-    
+
     /// Maximum number of transactions per block
     pub block_transaction_cap: usize,
-    
+
     /// Minimum difficulty target (easiest difficulty)
     /// Format: hex string like "0x0000FFFFFFFFFFFF..."
     pub min_target_hex: String,
@@ -70,19 +69,19 @@ pub struct NetworkConfig {
 pub struct NodeConfig {
     /// Port to listen on
     pub port: u16,
-    
+
     /// Blockchain file path
     pub blockchain_file: String,
-    
+
     /// Initial peer addresses (comma-separated)
     pub initial_peers: Vec<String>,
-    
+
     /// Mempool cleanup interval in seconds
     pub mempool_cleanup_interval_secs: u64,
-    
+
     /// Blockchain save interval in seconds
     pub blockchain_save_interval_secs: u64,
-    
+
     /// Maximum number of peer connections
     pub max_peers: usize,
 }
@@ -92,13 +91,13 @@ pub struct NodeConfig {
 pub struct MiningConfig {
     /// Number of nonces to try in each mining batch
     pub mining_batch_size: usize,
-    
+
     /// Seconds between template fetches/validations
     pub template_fetch_interval_secs: u64,
-    
+
     /// Node address to connect to
     pub node_address: String,
-    
+
     /// Public key file for receiving rewards
     pub public_key_file: String,
 }
@@ -108,13 +107,13 @@ pub struct MiningConfig {
 pub struct WalletConfig {
     /// UTXO update interval in seconds
     pub utxo_update_interval_secs: u64,
-    
+
     /// Balance display update interval in milliseconds
     pub balance_display_update_interval_ms: u64,
-    
+
     /// Node address to connect to
     pub node_address: String,
-    
+
     /// Wallet configuration file path
     pub config_file: String,
 }
@@ -183,34 +182,40 @@ impl Default for BlockchainConfig {
 
 impl BlockchainConfig {
     /// Load configuration from JSON file or use defaults
-    /// 
+    ///
     /// Configuration priority:
     /// 1. JSON config file (config.json) - if it exists and is valid
     /// 2. Hardcoded defaults (if default config file doesn't exist)
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the default config file exists but cannot be read or parsed.
     /// This ensures configuration errors are caught early rather than silently ignored.
     pub fn load() -> Self {
         match Self::load_from_file(DEFAULT_CONFIG_FILE) {
             Ok(config) => config,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                eprintln!("ℹ No config file found at {}, using defaults", DEFAULT_CONFIG_FILE);
+                eprintln!(
+                    "ℹ No config file found at {}, using defaults",
+                    DEFAULT_CONFIG_FILE
+                );
                 BlockchainConfig::default()
             }
             Err(e) => {
-                eprintln!("✗ Error loading configuration from {}: {}", DEFAULT_CONFIG_FILE, e);
+                eprintln!(
+                    "✗ Error loading configuration from {}: {}",
+                    DEFAULT_CONFIG_FILE, e
+                );
                 eprintln!("  Please fix the configuration file or remove it to use defaults.");
                 panic!("Failed to load configuration");
             }
         }
     }
-    
+
     /// Load configuration from a specific file path
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if:
     /// - The file does not exist
     /// - The file cannot be read
@@ -218,39 +223,39 @@ impl BlockchainConfig {
     /// - The JSON does not match the expected configuration structure
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> std::io::Result<Self> {
         let path = path.as_ref();
-        
+
         let contents = std::fs::read_to_string(path)?;
-        
-        let config = serde_json::from_str::<BlockchainConfig>(&contents)
-            .map_err(|e| std::io::Error::new(
+
+        let config = serde_json::from_str::<BlockchainConfig>(&contents).map_err(|e| {
+            std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Failed to parse configuration: {}", e)
-            ))?;
-        
+                format!("Failed to parse configuration: {}", e),
+            )
+        })?;
+
         eprintln!("✓ Loaded configuration from {}", path.display());
         Ok(config)
     }
-    
+
     /// Save configuration to a JSON file
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         let json = serde_json::to_string_pretty(self)?;
         std::fs::write(path.as_ref(), json)?;
         Ok(())
     }
-    
+
     /// Get or initialize the global configuration
     pub fn global() -> &'static BlockchainConfig {
         CONFIG.get_or_init(|| BlockchainConfig::load())
     }
-    
+
     /// Parse MIN_TARGET from hex string
     pub fn min_target(&self) -> U256 {
         let hex_str = self.network.min_target_hex.trim_start_matches("0x");
-        U256::from_str_radix(hex_str, 16)
-            .unwrap_or_else(|_| {
-                eprintln!("Warning: Invalid MIN_TARGET_HEX, using default");
-                crate::MIN_TARGET
-            })
+        U256::from_str_radix(hex_str, 16).unwrap_or_else(|_| {
+            eprintln!("Warning: Invalid MIN_TARGET_HEX, using default");
+            crate::MIN_TARGET
+        })
     }
 }
 
@@ -281,12 +286,16 @@ pub fn min_target() -> U256 {
 
 /// Get difficulty update interval from config
 pub fn difficulty_update_interval() -> u64 {
-    BlockchainConfig::global().network.difficulty_update_interval
+    BlockchainConfig::global()
+        .network
+        .difficulty_update_interval
 }
 
 /// Get max mempool transaction age from config
 pub fn max_mempool_transaction_age() -> u64 {
-    BlockchainConfig::global().network.max_mempool_transaction_age
+    BlockchainConfig::global()
+        .network
+        .max_mempool_transaction_age
 }
 
 /// Get block transaction cap from config
@@ -297,14 +306,14 @@ pub fn block_transaction_cap() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default_config_loads() {
         let config = BlockchainConfig::default();
         assert_eq!(config.network.initial_reward, 50);
         assert_eq!(config.node.port, 9000);
     }
-    
+
     #[test]
     fn test_min_target_parsing() {
         let config = BlockchainConfig::default();
@@ -312,4 +321,3 @@ mod tests {
         assert!(target > U256::zero());
     }
 }
-
