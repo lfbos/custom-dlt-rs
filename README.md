@@ -499,13 +499,63 @@ cargo run --bin block_gen <output_file> [custom_target_hex]
 cargo run --bin block_print <block_file>
 ```
 
-## 🧪 Development
+## 🧪 Testing
+
+This project includes comprehensive unit and integration tests to ensure code quality and reliability.
+
+### Test Coverage
+
+**Unit Tests (33 tests):**
+- ✅ Transaction operations (6 tests) - Creation, validation, hashing
+- ✅ Block operations (4 tests) - Creation, validation, hashing
+- ✅ Blockchain operations (4 tests) - Genesis, UTXO management, rewards
+- ✅ Cryptographic functions (5 tests) - Keys, signatures, verification
+- ✅ Merkle tree calculations (6 tests) - Root calculation, consistency
+- ✅ Test helpers (4 tests) - Shared utilities
+- ✅ Wallet fee calculation (4 tests) - Fixed vs percent fees
+
+**Integration Tests (4 tests):**
+- ✅ Genesis block creation - Starting a blockchain from scratch
+- ✅ Transaction to mempool - Adding pending transactions
+- ✅ Multiple blocks - Mining and adding blocks
+- ✅ State consistency - Tracking blockchain state
 
 ### Running Tests
 
 ```bash
-cargo test --workspace
+# Run all tests
+cargo test
+
+# Run only unit tests
+cargo test --lib
+
+# Run integration tests
+cargo test --test integration_tests --package btclib
+
+# Run with output
+cargo test -- --nocapture
 ```
+
+### Test Files
+
+- `lib/types/tests.rs` - Unit tests for transactions and blocks
+- `lib/src/crypto/tests.rs` - Unit tests for cryptography
+- `lib/src/util/tests.rs` - Unit tests for Merkle trees
+- `lib/tests/integration_tests.rs` - Integration tests with beginner documentation
+- `wallet/src/core_tests.rs` - Wallet fee calculation tests
+
+### What We Test
+
+✅ **Core Blockchain Logic** - UTXO model, block validation, mempool  
+✅ **Cryptographic Operations** - Key generation, signatures, verification  
+✅ **State Management** - Blockchain growth, UTXO tracking  
+✅ **Proof of Work** - Block mining and validation  
+
+**Note:** Full system testing (node + miner + wallet) is done via Docker Compose (see `docker/README.md`).
+
+## 🧪 Development
+
+### Building the Project
 
 ### Building Documentation
 
