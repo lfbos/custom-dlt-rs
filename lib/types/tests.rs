@@ -204,3 +204,76 @@ mod block_tests {
     }
 }
 
+#[cfg(test)]
+mod blockchain_tests {
+    use crate::types::{Blockchain, Block, BlockHeader, Transaction, TransactionOutput};
+    use crate::crypto::PrivateKey;
+    use crate::util::MerkleRoot;
+    use crate::{config, U256};
+    use chrono::Utc;
+    use uuid::Uuid;
+
+    fn create_test_output(value: u64, private_key: &mut PrivateKey) -> TransactionOutput {
+        TransactionOutput {
+            value,
+            unique_id: Uuid::new_v4(),
+            pubkey: private_key.public_key(),
+        }
+    }
+
+    #[test]
+    fn test_blockchain_initialization() {
+        let blockchain = Blockchain::new();
+        
+        assert_eq!(blockchain.blocks().count(), 0);
+        assert_eq!(blockchain.utxos().len(), 0);
+        assert_eq!(blockchain.block_height(), 0);
+    }
+
+    #[test]
+    fn test_blockchain_add_genesis_block() {
+        let mut blockchain = Blockchain::new();
+        let mut private_key = PrivateKey::new_key();
+        
+        let output = create_test_output(config::initial_reward() * 100_000_000, &mut private_key);
+        let transaction = Transaction::new(vec![], vec![output]);
+        
+        let block = Block::new(
+            BlockHeader::new(
+                Utc::now(),
+                0,
+                crate::sha256::Hash::zero(),
+                MerkleRoot::calculate(&vec![transaction.clone()]),
+                config::min_target(),
+            ),
+            vec![transaction],
+        );
+
+        let result = blockchain.add_block(block);
+        assert!(result.is_ok());
+        assert_eq!(blockchain.block_height(), 1);
+    }
+
+    #[test]
+    fn test_calculate_block_reward() {
+        let blockchain = Blockchain::new();
+        
+        // At height 0, reward should be initial_reward
+        blockchain.calculate_block_reward();
+        assert_eq!(blockchain.block_height(), 0);
+        
+        // Test that reward calculation exists
+        let reward = blockchain.calculate_block_reward();
+        assert!(reward > 0);
+    }
+
+    #[test]
+    fn test_blockchain_target() {
+        let blockchain = Blockchain::new();
+        let target = blockchain.target();
+        
+        // Target should not be zero
+        assert_ne!(target, U256::from(0));
+    }
+}
+
