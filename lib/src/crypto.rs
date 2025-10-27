@@ -103,3 +103,6 @@ mod signkey_serde {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;
