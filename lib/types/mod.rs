@@ -5,3 +5,6 @@ mod transaction;
 pub use block::*;
 pub use blockchain::*;
 pub use transaction::*;
+
+#[cfg(test)]
+mod tests;
