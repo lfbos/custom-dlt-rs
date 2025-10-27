@@ -11,6 +11,7 @@ use anyhow::{anyhow, Result};
 use btclib::{config::BlockchainConfig, crypto::PublicKey, network::Message, types::Block, util::Saveable};
 use clap::Parser;
 use tokio::{net::TcpStream, sync::Mutex, time::interval};
+use tracing::{debug, info, warn};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -80,9 +81,9 @@ impl Miner {
                         .clone();
                     
                     if let Some(mut block) = block {
-                        println!("Mining block with target: {}", block.header.target);
+                        debug!("Mining block with target: {}", block.header.target);
                         if block.header.mine(config.mining.mining_batch_size) {
-                            println!("Block mined: {}", block.hash());
+                            info!("Block mined: {}", block.hash());
                             sender.send(block).expect("Failed to send mined block");
                             mining.store(false, Ordering::Relaxed);
                         }
@@ -103,7 +104,7 @@ impl Miner {
     }
 
     async fn fetch_template(&self) -> Result<()> {
-        println!("Fetching new template");
+        info!("Fetching new template");
         let message = Message::FetchTemplate(self.public_key.clone());
         let mut stream_lock = self.stream.lock().await;
         message.send_async(&mut *stream_lock).await?;
@@ -112,7 +113,7 @@ impl Miner {
         match Message::receive_async(&mut *stream_lock).await? {
             Message::Template(template) => {
                 drop(stream_lock);
-                println!(
+                info!(
                     "Received new template with target: {}",
                     template.header.target
                 );
@@ -146,10 +147,10 @@ impl Miner {
                 Message::TemplateValidity(valid) => {
                     drop(stream_lock);
                     if !valid {
-                        println!("Current template is no longer valid");
+                        warn!("Current template is no longer valid");
                         self.mining.store(false, Ordering::Relaxed);
                     } else {
-                        println!("Current template is still valid");
+                        debug!("Current template is still valid");
                     }
                     Ok(())
                 }
@@ -163,7 +164,7 @@ impl Miner {
     }
 
     async fn submit_block(&self, block: Block) -> Result<()> {
-        println!("Submitting mined block");
+        info!("Submitting mined block");
         let message = Message::SubmitTemplate(block);
         let mut stream_lock = self.stream.lock().await;
         message.send_async(&mut *stream_lock).await?;
@@ -183,10 +184,13 @@ async fn main() -> Result<()> {
     let address = cli.address.unwrap_or_else(|| config.mining.node_address.clone());
     let public_key_file = cli.public_key_file.unwrap_or_else(|| config.mining.public_key_file.clone());
     
-    println!("⛏️  Starting miner");
-    println!("Network: {}", config.network.network_id);
-    println!("Connecting to node: {}", address);
-    println!("Rewards will be sent to key: {}", public_key_file);
+    // Initialize tracing
+    tracing_subscriber::fmt::init();
+    
+    info!("⛏️  Starting miner");
+    info!("Network: {}", config.network.network_id);
+    info!("Connecting to node: {}", address);
+    info!("Rewards will be sent to key: {}", public_key_file);
     
     let public_key = PublicKey::load_from_file(&public_key_file)
         .map_err(|e| anyhow!("Error reading public key: {}", e))?;
